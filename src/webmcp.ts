@@ -194,7 +194,7 @@ function createTools(): WebMCPToolDefinition[] {
 
     {
       name: 'create_shadow_revision',
-      description: 'Creates a new Shadow Revision to isolate proposed changes. This does NOT modify the live workspace. Generates impact analysis and runs tests automatically.',
+      description: 'Creates a new Shadow Revision to isolate proposed changes (can create counterfactual candidates A, B, C). This does NOT modify the live workspace. Generates impact analysis and runs tests automatically.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -210,14 +210,18 @@ function createTools(): WebMCPToolDefinition[] {
             }
           },
           explanation: { type: 'string', description: 'Why this change works' },
+          candidate_id: { type: 'string', description: 'Optional. A, B, or C to designate a counterfactual strategy.' },
+          group_id: { type: 'string', description: 'Optional. Group ID to link multiple candidates.' },
         },
         required: ['changes', 'explanation'],
         additionalProperties: false,
       },
-      execute: async ({ changes, explanation }) => {
+      execute: async ({ changes, explanation, candidate_id, group_id }) => {
         const result = state().createShadowRevision(
           changes as Array<{ path: string; content: string }>,
-          explanation as string
+          explanation as string,
+          candidate_id as 'A' | 'B' | 'C' | undefined,
+          group_id as string | undefined
         );
         if (!result.ok) return mcpError(result.errorCode!, result.message!);
         const data = result.data as { shadowId: string, status: string };
@@ -255,78 +259,6 @@ function createTools(): WebMCPToolDefinition[] {
         const result = state().runShadowTests(shadowId as string);
         if (!result.ok) return mcpError(result.errorCode!, 'Failed to run shadow tests');
         return mcpResult('Shadow tests complete.', result.data);
-      },
-    },
-
-    {
-      name: 'get_patch_evidence',
-      description: 'Returns the causal evidence and risk assessment for a shadow revision.',
-      inputSchema: {
-        type: 'object',
-        properties: { shadowId: { type: 'string' } },
-        required: ['shadowId'],
-        additionalProperties: false,
-      },
-      execute: async ({ shadowId }) => {
-        const shadow = state().shadowRevisions.find(s => s.id === shadowId);
-        if (!shadow) return mcpError('SHADOW_NOT_FOUND', 'Shadow revision not found.');
-        const text = [
-          `Overall Risk: ${shadow.riskAssessment?.overallRisk}`,
-          `Budget Violations: ${shadow.riskAssessment?.budgetViolations.join(', ') || 'None'}`,
-          `Impact Level: ${shadow.evidence?.impactLevel}`,
-          `Tests Passed: ${shadow.evidence?.shadowTestsPassed}`,
-        ].join('\n');
-        return mcpResult(text, { risk: shadow.riskAssessment, evidence: shadow.evidence });
-      },
-    },
-
-    // ─── AGENT ACTION ───
-
-    {
-      name: 'propose_patch',
-      description: 'Alias for create_shadow_revision.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          changes: {
-            type: 'array',
-            items: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path', 'content'] }
-          },
-          reason: { type: 'string' },
-          testPlan: { type: 'string' },
-        },
-        required: ['changes', 'reason', 'testPlan'],
-        additionalProperties: false,
-      },
-      execute: async ({ changes, reason }) => {
-        const result = state().createShadowRevision(
-          changes as Array<{ path: string; content: string }>,
-          reason as string
-        );
-        if (!result.ok) return mcpError(result.errorCode!, result.message!);
-        const data = result.data as { shadowId: string, status: string };
-        state().addActivity('agent', 'shadow', `Proposed Patch via Shadow #${data.shadowId} (${data.status})`);
-        return mcpResult(`Proposal created as Shadow ${data.shadowId}. Status: ${data.status}.`, data);
-      },
-    },
-
-    {
-      name: 'apply_patch',
-      description: 'Apply an APPROVED shadow revision to the live workspace. Fails if unapproved or stale.',
-      inputSchema: {
-        type: 'object',
-        properties: { shadowId: { type: 'string' } },
-        required: ['shadowId'],
-        additionalProperties: false,
-      },
-      execute: async ({ shadowId }) => {
-        const shadow = state().shadowRevisions.find(s => s.id === shadowId);
-        if (!shadow) return mcpError('SHADOW_NOT_FOUND', 'Shadow not found');
-        if (shadow.status !== 'approved') return mcpError('SHADOW_NOT_APPROVED', `Shadow status is ${shadow.status}. Human approval is required.`);
-        
-        const result = state().applyShadowRevision(shadowId as string, 'agent');
-        if (!result.ok) return mcpError(result.errorCode!, result.message!);
-        return mcpResult('Shadow revision applied successfully to the live workspace.', result.data);
       },
     },
 

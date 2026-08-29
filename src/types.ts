@@ -15,6 +15,14 @@ export interface FileEntry {
   lastModifiedAt: number;
 }
 
+export interface BehavioralInvariant {
+  id: string;
+  name: string;
+  description: string;
+  fixtureCases: string[];
+  expectedResults: any[];
+}
+
 export interface Constraint {
   id: string;
   type: ConstraintType;
@@ -115,11 +123,14 @@ export interface HumanDecision {
 
 export interface ShadowRevision {
   id: string;
+  groupId?: string;
+  candidateId?: 'A' | 'B' | 'C';
   baseRevision: number;
   createdAt: number;
   changes: PatchChange[];
   testResults?: TestRunSummary;
   impactAnalysis?: ImpactGraph;
+  invariantResults?: Record<string, 'pass' | 'fail'>;
   riskAssessment?: {
     scopeRisk: number;
     impactRisk: number;
@@ -142,12 +153,15 @@ export interface PatchReceipt {
   revision: number;
   approvedBy: Actor;
   shadowId: string;
+  selectedCandidate?: string;
+  decisionReason?: string;
   filesChanged: number;
   linesChanged: number;
   shadowVerification: string;
   impact: ImpactLevel;
   risk: string;
   contractViolations: number;
+  invariantsPreserved: number;
   timestamp: number;
 }
 
@@ -189,6 +203,7 @@ export interface WorkspaceState {
   constraints: Constraint[];
   changeContract: ChangeContract;
   riskBudget: RiskBudget;
+  invariants: BehavioralInvariant[];
   humanDecisions: HumanDecision[];
 
   // Shadows & Proofs

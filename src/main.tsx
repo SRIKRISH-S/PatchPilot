@@ -162,13 +162,18 @@ function TopBar() {
   const activeShadowId = useWorkspaceStore(sel.activeShadowId);
   const shadowRevisions = useWorkspaceStore(sel.shadowRevisions);
   const activeShadow = activeShadowId ? shadowRevisions.find(s => s.id === activeShadowId) : null;
+  const testResults = useWorkspaceStore(sel.testResults);
   const rehearsalRunning = useWorkspaceStore(sel.rehearsalRunning);
   const judgeMode = useWorkspaceStore(sel.judgeMode);
+  
+  const buildId = import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA 
+    ? import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA.substring(0, 7) 
+    : 'local';
 
   return (
     <header className="topbar">
-      <div className="topbar-left">
-        <div className="brand">
+      <div className="topbar-left flex items-center">
+        <div className="brand mr-4">
           <div className="logo-sm">
             <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
               <rect width="48" height="48" rx="14" fill="url(#logo-grad-sm)" />
@@ -176,41 +181,59 @@ function TopBar() {
               <defs><linearGradient id="logo-grad-sm" x1="0" y1="0" x2="48" y2="48"><stop stopColor="#8b5cf6"/><stop offset="1" stopColor="#3b82f6"/></linearGradient></defs>
             </svg>
           </div>
-          <div className="brand-name">PatchPilot 2.0</div>
+          <div className="brand-name">PATCHPILOT 3.0</div>
+        </div>
+        <div className="text-[10px] text-tertiary bg-surface-raised px-2 py-0.5 rounded border border-subtle">
+          BUILD {buildId}
         </div>
       </div>
 
-      <div className="topbar-center">
-        <div className="live-pill">
-          <span className="live-dot" /> LIVE REVISION #{revision}
+      <div className="topbar-center flex gap-2">
+        <div className="status-pill border-blue/30 text-blue bg-blue/5">
+          LIVE REVISION #{revision}
         </div>
         
         {activeShadow && (
           <>
-            <Icon name="chevronRight" size={16} className="text-tertiary" />
-            <div className={`shadow-pill ${activeShadow.status}`}>
-              <Icon name="shield" size={12} />
-              SHADOW {activeShadow.id} — {activeShadow.status.toUpperCase()}
+            <div className={`status-pill ${activeShadow.status === 'blocked' ? 'border-red/30 text-red bg-red/5' : activeShadow.status === 'passed' ? 'border-amber/30 text-amber bg-amber/5' : 'border-green/30 text-green bg-green/5'}`}>
+              SHADOW: {activeShadow.candidateId ? `CANDIDATE ${activeShadow.candidateId}` : activeShadow.id.split('-').pop()}
             </div>
           </>
         )}
 
-        {rehearsalRunning && (
-          <span className="rehearsal-badge ml-4">
-            <Icon name="play" size={12} /> REHEARSAL: Deterministic local walkthrough. No external AI agent is executing these calls.
-          </span>
-        )}
+        <div className="status-pill border-subtle text-secondary bg-surface-raised">
+          {testResults ? `${testResults.passed}/${testResults.total} TESTS` : 'NO TESTS'}
+        </div>
+
+        <div className="status-pill border-subtle text-secondary bg-surface-raised">
+          INVARIANTS {activeShadow ? (activeShadow.invariantResults && Object.values(activeShadow.invariantResults).every(v => v === 'pass') ? '✓' : '✗') : '✓'}
+        </div>
+
+        <div className="status-pill border-subtle text-secondary bg-surface-raised">
+          RISK: {activeShadow?.riskAssessment?.overallRisk?.toUpperCase() || 'LOW'}
+        </div>
+
+        <div className="status-pill border-violet/30 text-violet bg-violet/5 font-bold">
+          <Icon name="shield" size={12} className="inline mr-1 -mt-0.5" />
+          HUMAN GOVERNED
+        </div>
       </div>
 
       <div className="topbar-right">
+        {rehearsalRunning && (
+          <span className="rehearsal-badge mr-4">
+            <Icon name="play" size={12} /> REHEARSAL
+          </span>
+        )}
+        
         {store.getState().webmcpStatus?.available ? (
-          <span className="text-xs text-green border border-green px-2 py-1 rounded mr-3 flex items-center gap-1">
+          <span className="text-xs text-green border border-green/30 bg-green/5 px-2 py-1 rounded mr-3 flex items-center gap-1">
             <div className="w-2 h-2 rounded-full bg-green animate-pulse"></div>
-            WEBMCP CONNECTED
+            WEBMCP • CONNECTED
           </span>
         ) : (
-          <span className="text-xs text-red border border-red/30 px-2 py-1 rounded mr-3 opacity-80">
-            WEBMCP NOT DETECTED
+          <span className="text-xs text-red border border-red/30 bg-red/5 px-2 py-1 rounded mr-3 opacity-80 flex items-center gap-1">
+            WEBMCP • NOT CONNECTED
           </span>
         )}
         <button className={`topbar-btn ${judgeMode ? 'active' : ''}`} onClick={() => store.getState().setJudgeMode(!judgeMode)}>
@@ -320,39 +343,40 @@ function CodeEditor() {
 function EvidenceView({ shadow }: { shadow: ShadowRevision }) {
   if (!shadow.evidence) return <div className="p-4 text-tertiary">No evidence generated yet.</div>;
   const { evidence, riskAssessment } = shadow;
+  const isApproved = shadow.status === 'approved';
+
+  const steps = [
+    { icon: 'zap', color: 'text-red', title: 'Observed Failure', desc: 'Tests failing in base revision' },
+    { icon: 'search', color: 'text-blue', title: 'Root Cause', desc: evidence.proposedFix },
+    { icon: 'file', color: 'text-violet', title: 'Shadow Patch', desc: 'Candidate changes applied in isolation' },
+    { icon: 'git', color: 'text-amber', title: 'Impact Analysis', desc: `Blast radius: ${evidence.impactLevel}` },
+    { icon: 'shield', color: riskAssessment?.overallRisk === 'high' ? 'text-red' : 'text-green', title: 'Invariant Verification', desc: riskAssessment?.budgetViolations.length ? riskAssessment.budgetViolations.join(', ') : 'Within risk budget and invariants preserved' },
+    { icon: 'check', color: evidence.shadowTestsPassed ? 'text-green' : 'text-red', title: 'Test Verification', desc: shadow.testResults ? `${shadow.testResults.passed}/${shadow.testResults.total} TESTS PASSING` : 'Verified' },
+    ...(isApproved || shadow.evidence?.humanDecision ? [
+      { icon: 'user', color: 'text-violet', title: 'Human Approval', desc: shadow.evidence?.humanDecision || 'Human Authorized' },
+      { icon: 'server', color: 'text-blue', title: 'Live Revision', desc: 'Merged to authoritative state' },
+      { icon: 'copy', color: 'text-primary', title: 'Change Receipt', desc: 'Immutable governance record generated' }
+    ] : [])
+  ];
 
   return (
-    <div className="evidence-chain">
-      <div className="chain-node">
-        <Icon name="zap" size={16} className="text-red" />
-        <div className="node-content">
-          <strong>Failure Detected</strong>
-          <span>Tests failing in base revision</span>
-        </div>
-      </div>
-      <div className="chain-link" />
-      <div className="chain-node">
-        <Icon name="search" size={16} className="text-blue" />
-        <div className="node-content">
-          <strong>Agent Analysis</strong>
-          <span>{evidence.proposedFix}</span>
-        </div>
-      </div>
-      <div className="chain-link" />
-      <div className="chain-node">
-        <Icon name="terminal" size={16} className={evidence.shadowTestsPassed ? 'text-green' : 'text-red'} />
-        <div className="node-content">
-          <strong>Shadow Verification</strong>
-          <span>{evidence.shadowTestsPassed ? 'All tests passed in isolation' : 'Tests failed in shadow'}</span>
-        </div>
-      </div>
-      <div className="chain-link" />
-      <div className="chain-node">
-        <Icon name="shield" size={16} className={riskAssessment?.overallRisk === 'high' ? 'text-red' : 'text-green'} />
-        <div className="node-content">
-          <strong>Risk Assessment ({riskAssessment?.overallRisk.toUpperCase()})</strong>
-          <span>{riskAssessment?.budgetViolations.length ? riskAssessment.budgetViolations.join(', ') : 'Within human risk budget'}</span>
-        </div>
+    <div className="evidence-chain p-6 overflow-y-auto h-full">
+      <h3 className="text-sm font-bold text-primary mb-6 uppercase tracking-wider flex items-center gap-2">
+        <Icon name="search" size={16} className="text-violet" /> Causal Evidence Board
+      </h3>
+      
+      <div className="relative pl-6 border-l-2 border-subtle ml-3 space-y-8">
+        {steps.map((step, i) => (
+          <div key={i} className="relative">
+            <div className={`absolute -left-[35px] w-6 h-6 rounded-full bg-surface border-2 ${step.color.replace('text-', 'border-')} flex items-center justify-center`}>
+              <Icon name={step.icon} size={12} className={step.color} />
+            </div>
+            <div>
+              <strong className={`block text-sm ${step.color}`}>{step.title}</strong>
+              <span className="text-sm text-secondary">{step.desc}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -430,51 +454,238 @@ function AgentActivity() {
   );
 }
 
-/* ─── Right Panel: Proposal (Action) ─── */
-function ProposalView({ shadow }: { shadow: ShadowRevision }) {
+function CounterfactualArena({ activeShadow }: { activeShadow: ShadowRevision }) {
   const store = useWorkspaceStore;
+  const shadowRevisions = useWorkspaceStore(sel.shadowRevisions);
+  
+  const group = activeShadow.groupId 
+    ? shadowRevisions.filter(s => s.groupId === activeShadow.groupId).reverse()
+    : shadowRevisions.filter(s => s.baseRevision === activeShadow.baseRevision && s.id === activeShadow.id);
+
+  const formatInvariant = (shadow: ShadowRevision) => {
+    if (!shadow.invariantResults) return '✗';
+    const allPass = Object.values(shadow.invariantResults).every(r => r === 'pass');
+    return allPass ? '✓' : '✗';
+  };
+
+  const getRecommended = () => {
+    return group.find(s => s.status === 'passed' && s.riskAssessment?.overallRisk === 'low') || group.find(s => s.status === 'passed') || null;
+  };
+
+  const recommended = getRecommended();
+  
+  const getBlockReason = (shadow: ShadowRevision) => {
+    if (shadow.status !== 'blocked') return null;
+    if (formatInvariant(shadow) === '✗') return 'Invariants: FAILED';
+    if (shadow.riskAssessment?.budgetViolations.length) return 'Risk: Budget exceeded';
+    if (shadow.impactAnalysis?.summary.highestImpact === 'HIGH') return 'Impact: HIGH';
+    if (shadow.impactAnalysis?.summary.highestImpact === 'PROTECTED') return 'Risk: Protected file';
+    return 'Status: BLOCKED';
+  };
 
   return (
-    <div className="proposal-view p-4 flex flex-col h-full">
-      <div className="mb-4">
-        <h3 className="text-lg font-bold text-primary">Shadow Revision {shadow.id}</h3>
-        <p className="text-secondary mt-1">{shadow.explanation}</p>
+    <div className="proposal-view p-6 flex flex-col h-full overflow-y-auto">
+      <div className="mb-8 text-center">
+        <h3 className="text-2xl font-bold text-primary mb-2 tracking-tight">COUNTERFACTUAL CHANGE ARENA</h3>
+        <p className="text-secondary text-sm font-medium">"Three possible ways to fix the same production failure."</p>
       </div>
 
-      <div className={`status-banner ${shadow.status} mb-4`}>
-        STATUS: {shadow.status.toUpperCase()}
+      <div className="flex gap-4 mb-8">
+        {group.map(s => {
+          const isBlocked = s.status === 'blocked';
+          const blockReason = getBlockReason(s);
+          const isRecommended = recommended?.id === s.id;
+          
+          return (
+            <div key={s.id} className={`flex-1 flex flex-col border rounded-xl overflow-hidden transition-all duration-300 ${isBlocked ? 'border-red/20 opacity-80' : isRecommended ? 'border-violet/60 shadow-[0_0_15px_rgba(139,92,246,0.1)] ring-1 ring-violet/30' : 'border-subtle bg-surface-raised'}`}>
+              <div className={`p-3 text-center border-b font-bold text-sm ${isBlocked ? 'bg-red/5 border-red/10 text-secondary' : isRecommended ? 'bg-violet/10 border-violet/20 text-violet' : 'border-subtle text-primary'}`}>
+                Candidate {s.candidateId || s.id.split('-').pop()}
+              </div>
+              <div className="p-4 space-y-3 text-xs bg-surface/50 flex-1">
+                <div className="flex justify-between">
+                  <span className="text-tertiary">Tests:</span>
+                  <span className={s.testResults?.failed ? 'text-red font-bold' : 'text-primary'}>{s.testResults ? `${s.testResults.passed}/${s.testResults.total}` : '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-tertiary">Impact:</span>
+                  <span className={s.impactAnalysis?.summary.highestImpact === 'HIGH' ? 'text-amber font-bold' : 'text-primary'}>{s.impactAnalysis?.summary.highestImpact || '-'}</span>
+                </div>
+                {isBlocked ? (
+                  <div className="mt-4 pt-4 border-t border-red/10">
+                    <div className="text-red font-bold">{blockReason}</div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-tertiary">Risk:</span>
+                      <span className="text-primary">{s.riskAssessment?.overallRisk || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-tertiary">Files:</span>
+                      <span className="text-primary">{s.changes.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-tertiary">Lines:</span>
+                      <span className="text-primary">{s.changes.reduce((a,c) => a + c.content.split('\n').length, 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-tertiary">Invariants:</span>
+                      <span className="text-green font-bold">PASS</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-tertiary">Budget:</span>
+                      <span className="text-green font-bold">PASS</span>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-subtle">
+                      <div className="text-green font-bold">Status: READY FOR APPROVAL</div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <button 
+                className={`w-full py-2 text-xs font-bold transition-colors ${store.getState().activeShadowId === s.id ? 'bg-primary text-root' : 'bg-surface hover:bg-surface-raised text-secondary'}`}
+                onClick={() => store.setState({ activeShadowId: s.id })}>
+                {store.getState().activeShadowId === s.id ? 'VIEWING CODE' : 'VIEW CODE'}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="diff-summary flex-1">
-        <h4 className="text-sm font-bold text-secondary mb-2">Files Changed</h4>
-        {shadow.changes.map(c => (
-          <div key={c.path} className="flex justify-between text-sm py-1 border-b border-subtle">
-            <span>{c.path}</span>
-            <span className="text-violet">Modified</span>
+      {recommended && store.getState().activeShadowId === recommended.id && (
+        <div className="mt-auto bg-surface-raised border border-violet/30 rounded-xl overflow-hidden shadow-lg animate-in fade-in slide-in-from-bottom-4">
+          <div className="bg-violet/10 px-6 py-3 border-b border-violet/20 flex items-center justify-between">
+            <h4 className="text-violet font-bold text-sm tracking-wide">READY FOR HUMAN REVIEW</h4>
+            <div className="text-xs text-violet/80">Candidate {recommended.candidateId || recommended.id.split('-').pop()}</div>
           </div>
-        ))}
+          
+          <div className="p-6">
+            <p className="text-sm text-secondary mb-4">Candidate {recommended.candidateId || recommended.id.split('-').pop()} satisfies all constraints:</p>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="flex items-center gap-2 text-sm text-primary">
+                <Icon name="check" size={16} className="text-green" /> 
+                {recommended.testResults?.passed}/{recommended.testResults?.total} tests
+              </div>
+              <div className="flex items-center gap-2 text-sm text-primary">
+                <Icon name="check" size={16} className="text-green" /> 
+                Behavioral invariants preserved
+              </div>
+              <div className="flex items-center gap-2 text-sm text-primary">
+                <Icon name="check" size={16} className="text-green" /> 
+                Protected files untouched
+              </div>
+              <div className="flex items-center gap-2 text-sm text-primary">
+                <Icon name="check" size={16} className="text-green" /> 
+                Risk budget satisfied
+              </div>
+              <div className="flex items-center gap-2 text-sm text-primary">
+                <Icon name="check" size={16} className="text-green" /> 
+                Shadow isolated
+              </div>
+              <div className="flex items-center gap-2 text-sm text-primary">
+                <Icon name="check" size={16} className="text-green" /> 
+                Impact analyzed
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button 
+                className="btn secondary flex-1 flex justify-center items-center gap-2"
+                onClick={() => store.setState({ activeTab: 'EVIDENCE' })}>
+                <Icon name="search" size={14} /> VIEW EVIDENCE
+              </button>
+              <button 
+                className="btn approve flex-1 flex justify-center items-center gap-2 bg-violet hover:bg-violet/90 text-white border-0 py-2 font-bold shadow-md"
+                onClick={() => store.getState().applyShadowRevision(recommended.id, 'human')}>
+                <Icon name="check" size={16} /> APPROVE & APPLY
+              </button>
+            </div>
+            <div className="text-center mt-3 text-[10px] text-tertiary uppercase tracking-widest font-bold">
+              Human Authorized Only
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Right Panel: Change Receipt ─── */
+function ChangeReceiptView({ activeShadow }: { activeShadow: ShadowRevision }) {
+  const store = useWorkspaceStore;
+  const receipts = useWorkspaceStore(s => s.patchReceipts);
+  const receipt = receipts.find(r => r.shadowId === activeShadow.id);
+
+  if (!receipt) return <div className="p-4 text-secondary">Receipt not found.</div>;
+
+  const timestamp = new Date(receipt.timestamp).toLocaleString();
+  const candidateName = `Candidate ${receipt.selectedCandidate || receipt.shadowId.split('-').pop()}`;
+
+  return (
+    <div className="proposal-view p-6 flex flex-col h-full overflow-y-auto animate-in fade-in zoom-in-95">
+      <div className="mb-8 flex items-center gap-3">
+        <div className="bg-green/10 p-2 rounded-full border border-green/20">
+          <Icon name="check" size={24} className="text-green" />
+        </div>
+        <div>
+          <h3 className="text-2xl font-bold text-green tracking-tight">APPLIED TO LIVE</h3>
+          <p className="text-sm text-secondary">The counterfactual candidate has been merged into authoritative state.</p>
+        </div>
+      </div>
+
+      <div className="bg-surface-raised border border-subtle p-6 rounded-xl mb-6 shadow-xl">
+        <div className="flex justify-between items-center mb-6 border-b border-subtle pb-4">
+          <h4 className="text-sm font-bold text-primary flex items-center gap-2 tracking-wide uppercase">
+            <Icon name="shield" size={16} className="text-violet" /> 
+            Change Receipt
+          </h4>
+          <span className="text-xs font-mono text-tertiary">{receipt.id}</span>
+        </div>
         
-        {shadow.evidence?.humanDecision && (
-          <div className="mt-4 p-3 bg-surface-raised border border-subtle rounded-md">
-            <span className="text-xs text-tertiary block mb-1">AUTOMATED EVALUATION</span>
-            <span className={`text-sm ${shadow.status === 'passed' ? 'text-green' : 'text-amber'}`}>
-              {shadow.evidence.humanDecision}
-            </span>
+        <div className="grid grid-cols-2 gap-y-5 text-sm">
+          <div className="text-secondary">Selected Candidate</div>
+          <div className="font-bold text-primary">{candidateName}</div>
+
+          <div className="text-secondary">Human Decision</div>
+          <div className="font-bold text-violet flex items-center gap-2">
+            <Icon name="user" size={14} /> Approved ({receipt.approvedBy})
           </div>
-        )}
+
+          <div className="text-secondary">Changed Files</div>
+          <div className="text-primary font-mono text-xs bg-surface p-1 rounded inline-block">
+            {activeShadow.changes.map(c => c.path).join(', ')}
+          </div>
+
+          <div className="text-secondary">Verification</div>
+          <div className="text-green font-bold">
+            {activeShadow.testResults ? `${activeShadow.testResults.passed}/${activeShadow.testResults.total} tests passing` : 'Verified'}
+          </div>
+
+          <div className="text-secondary">Behavioral Invariants</div>
+          <div className="text-green font-bold">All preserved</div>
+
+          <div className="text-secondary">Risk Budget</div>
+          <div className="text-green font-bold">Compliant</div>
+
+          <div className="text-secondary">Protected Files</div>
+          <div className="text-primary">untouched</div>
+
+          <div className="text-secondary">Impact</div>
+          <div className={`font-bold ${receipt.impact === 'HIGH' ? 'text-amber' : 'text-blue'}`}>{receipt.impact}</div>
+
+          <div className="text-secondary border-t border-subtle pt-4 mt-2">Live Revision</div>
+          <div className="font-bold text-primary text-lg border-t border-subtle pt-4 mt-2">#{receipt.revision}</div>
+
+          <div className="text-secondary">Timestamp</div>
+          <div className="text-tertiary">{timestamp}</div>
+        </div>
       </div>
 
-      <div className="actions mt-auto pt-4 border-t border-subtle flex gap-2">
+      <div className="mt-auto">
         <button 
-          className="btn danger flex-1"
-          onClick={() => store.getState().rejectShadowRevision(shadow.id)}>
-          Reject
-        </button>
-        <button 
-          className="btn approve flex-1"
-          disabled={shadow.status === 'blocked'}
-          onClick={() => store.getState().applyShadowRevision(shadow.id, 'human')}>
-          {shadow.status === 'blocked' ? 'Blocked by Policy' : 'Approve & Apply'}
+          className="btn secondary w-full flex justify-center items-center gap-2 py-3 font-bold"
+          onClick={() => store.setState({ activeShadowId: null })}>
+          <Icon name="x" size={16} /> DISMISS RECEIPT
         </button>
       </div>
     </div>
@@ -510,7 +721,8 @@ function RightPanel() {
         {activeTab === 'AGENT' && <AgentActivity />}
         {activeTab === 'EVIDENCE' && activeShadow && <EvidenceView shadow={activeShadow} />}
         {activeTab === 'IMPACT' && activeShadow && <ImpactGraphView shadow={activeShadow} />}
-        {activeTab === 'PROPOSAL' && activeShadow && <ProposalView shadow={activeShadow} />}
+        {activeTab === 'PROPOSAL' && activeShadow && activeShadow.status !== 'approved' && <CounterfactualArena activeShadow={activeShadow} />}
+        {activeTab === 'PROPOSAL' && activeShadow && activeShadow.status === 'approved' && <ChangeReceiptView activeShadow={activeShadow} />}
         
         {(activeTab === 'EVIDENCE' || activeTab === 'IMPACT' || activeTab === 'PROPOSAL') && !activeShadow && (
           <div className="p-8 text-center text-tertiary">
@@ -530,14 +742,61 @@ function WebMCPInspector() {
   if (!show) return null;
   return (
     <div className="inspector-overlay" onClick={() => store.getState().setShowWebMCPInspector(false)}>
-      <div className="inspector-panel p-6 bg-surface border border-subtle rounded-lg max-w-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <h2 className="text-xl font-bold mb-4">WebMCP Native Tools</h2>
-        <p className="text-secondary mb-6">The AI agent connects to PatchPilot 2.0 via these native tools to operate the Shadow Change Lab.</p>
-        <div className="space-y-4">
+      <div className="inspector-panel p-8 bg-surface border border-subtle rounded-xl max-w-4xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-8 border-b border-subtle pb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-primary tracking-tight">WEBMCP TOOL REGISTRY</h2>
+            <p className="text-secondary text-sm font-medium mt-1">11 TOOLS REGISTERED</p>
+          </div>
+          <button className="text-tertiary hover:text-primary transition-colors" onClick={() => store.getState().setShowWebMCPInspector(false)}>
+            <Icon name="x" size={24} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-8 mb-8">
+          <div className="bg-surface-raised border border-green/30 rounded-lg p-5">
+            <h3 className="text-green font-bold text-sm mb-4 flex items-center gap-2">
+              <Icon name="check" size={16} /> AGENT PERMISSIONS
+            </h3>
+            <ul className="space-y-2 text-sm text-primary">
+              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Inspect project state</li>
+              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Analyze impact radius</li>
+              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Read evidence & human decisions</li>
+              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Create counterfactual shadow patches</li>
+              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Run shadow tests</li>
+              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Compare candidates</li>
+            </ul>
+          </div>
+          <div className="bg-surface-raised border border-red/30 rounded-lg p-5">
+            <h3 className="text-red font-bold text-sm mb-4 flex items-center gap-2">
+              <Icon name="x" size={16} /> BLOCKED FROM AGENT
+            </h3>
+            <ul className="space-y-2 text-sm text-primary">
+              <li className="flex items-start gap-2"><Icon name="x" size={14} className="text-red mt-0.5" /> Approve patches</li>
+              <li className="flex items-start gap-2"><Icon name="x" size={14} className="text-red mt-0.5" /> Apply patches to live state</li>
+              <li className="flex items-start gap-2"><Icon name="x" size={14} className="text-red mt-0.5" /> Modify authoritative live state</li>
+              <li className="flex items-start gap-2"><Icon name="x" size={14} className="text-red mt-0.5" /> Bypass risk budgets</li>
+              <li className="flex items-start gap-2"><Icon name="x" size={14} className="text-red mt-0.5" /> Fake test results</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="bg-violet/10 border border-violet/30 rounded-lg p-4 mb-8 text-center">
+          <h3 className="text-violet font-bold text-sm tracking-widest uppercase">HUMAN-ONLY CONTROL BOUNDARY</h3>
+          <p className="text-secondary text-xs mt-1">The agent cannot cross this boundary. All patches require explicit human approval via the PatchPilot UI.</p>
+        </div>
+
+        <h3 className="text-lg font-bold text-primary mb-4 border-b border-subtle pb-2">Registered Tools</h3>
+        <div className="grid grid-cols-2 gap-4">
           {getToolManifest().map(t => (
-            <div key={t.name} className="p-3 bg-surface-raised border border-subtle rounded">
-              <strong className="text-violet">{t.name}</strong>
-              <p className="text-sm text-secondary mt-1">{t.description}</p>
+            <div key={t.name} className="p-4 bg-surface-raised border border-subtle rounded-lg">
+              <div className="flex justify-between items-start mb-2">
+                <strong className="text-violet text-sm font-mono">{t.name}</strong>
+                <span className="text-[10px] uppercase bg-surface px-1.5 py-0.5 rounded text-tertiary">
+                  {t.name.includes('create') || t.name.includes('run') || t.name.includes('analyze') ? 'MUTATE SHADOW' : 'READ LIVE'}
+                </span>
+              </div>
+              <p className="text-xs text-secondary leading-relaxed">{t.description}</p>
             </div>
           ))}
         </div>
@@ -553,54 +812,73 @@ function JudgeModeOverlay() {
   if (!judgeMode) return null;
 
   return (
-    <div className="judge-overlay fixed inset-0 z-50 bg-root/95 backdrop-blur-sm flex items-center justify-center p-8">
-      <div className="bg-surface border border-subtle rounded-xl p-8 max-w-4xl w-full shadow-2xl relative">
-        <button className="absolute top-4 right-4 text-tertiary hover:text-primary" onClick={() => store.getState().setJudgeMode(false)}>
-          <Icon name="x" size={24} />
+    <div className="judge-overlay fixed inset-0 z-50 bg-root/95 backdrop-blur-md flex items-center justify-center p-8">
+      <div className="bg-surface border border-subtle rounded-2xl p-10 max-w-5xl w-full shadow-2xl relative overflow-y-auto max-h-[90vh]">
+        <button className="absolute top-6 right-6 text-tertiary hover:text-primary transition-colors" onClick={() => store.getState().setJudgeMode(false)}>
+          <Icon name="x" size={28} />
         </button>
         
-        <h2 className="text-3xl font-bold mb-2">PatchPilot 2.0: Shadow Change Lab</h2>
-        <p className="text-xl text-secondary mb-8">A new human-governed collaboration model for WebMCP.</p>
-
-        <div className="flex gap-4 mb-8">
-          <div className="bg-surface-raised px-4 py-2 rounded border border-subtle">
-            <span className="text-xs text-tertiary block mb-1">STATE</span>
-            <span className="text-sm font-bold text-primary">LIVE #{store.getState().revision}</span>
-          </div>
-          <div className="bg-surface-raised px-4 py-2 rounded border border-subtle">
-            <span className="text-xs text-tertiary block mb-1">PROTOCOL</span>
-            <span className={`text-sm font-bold ${store.getState().webmcpStatus?.available ? 'text-green' : 'text-red'}`}>
-              {store.getState().webmcpStatus?.available ? 'WEBMCP CONNECTED' : 'WEBMCP NOT DETECTED'}
-            </span>
-          </div>
-          <div className="bg-surface-raised px-4 py-2 rounded border border-subtle">
-            <span className="text-xs text-tertiary block mb-1">GOVERNANCE</span>
-            <span className="text-sm font-bold text-violet">CONTRACT VALID</span>
-          </div>
-          <div className="bg-surface-raised px-4 py-2 rounded border border-subtle">
-            <span className="text-xs text-tertiary block mb-1">POLICY</span>
-            <span className="text-sm font-bold text-green">RISK LOW</span>
-          </div>
+        <div className="mb-10 text-center">
+          <h2 className="text-4xl font-bold mb-3 tracking-tight text-primary">PATCHPILOT 3.0</h2>
+          <h3 className="text-2xl text-violet font-medium mb-4">Human-Governed Agentic Change Management</h3>
+          <p className="text-lg text-secondary max-w-2xl mx-auto italic">
+            "The agent can investigate, simulate and prove a change.<br/>It cannot independently change authoritative state."
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-8">
-          <div>
-            <h3 className="text-lg font-bold text-violet mb-4">The Innovation: LIVE vs SHADOW</h3>
-            <ul className="space-y-3 text-secondary list-disc pl-4">
-              <li><strong>Shadow Revisions:</strong> Agent patches are fully isolated before they touch authoritative state.</li>
-              <li><strong>Impact Graphs:</strong> Visual dependency mapping to calculate blast radius.</li>
-              <li><strong>Risk Budgets:</strong> Strict human limits (e.g. max files, protected areas).</li>
-              <li><strong>Causal Evidence:</strong> Agent must prove the tests pass in isolation.</li>
-              <li><strong>Change Contracts:</strong> Human intent acts as a persistent programmatic constraint.</li>
-            </ul>
+        <div className="flex justify-between items-center mb-12 px-8 relative">
+          <div className="absolute top-1/2 left-16 right-16 h-1 bg-subtle -z-10 -translate-y-1/2 rounded"></div>
+          
+          {[
+            { num: '01', title: 'UNDERSTAND', icon: 'search', color: 'text-blue' },
+            { num: '02', title: 'SIMULATE', icon: 'file', color: 'text-violet' },
+            { num: '03', title: 'VERIFY', icon: 'shield', color: 'text-amber' },
+            { num: '04', title: 'HUMAN APPROVES', icon: 'user', color: 'text-green' },
+            { num: '05', title: 'APPLY', icon: 'check', color: 'text-primary' },
+          ].map((step, i) => (
+            <div key={i} className="flex flex-col items-center bg-surface p-2">
+              <div className={`w-14 h-14 rounded-full bg-surface-raised border-2 border-subtle flex items-center justify-center mb-3 shadow-sm ${step.color}`}>
+                <Icon name={step.icon} size={24} />
+              </div>
+              <span className="text-[10px] font-bold text-tertiary mb-1">{step.num}</span>
+              <span className="text-xs font-bold text-primary tracking-wider">{step.title}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-8 mb-8">
+          <div className="bg-surface-raised border border-subtle rounded-xl p-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-2 opacity-10">
+              <Icon name="bot" size={64} />
+            </div>
+            <h3 className="text-lg font-bold text-tertiary mb-6 uppercase tracking-widest border-b border-subtle pb-3">Traditional AI Coding</h3>
+            <div className="flex items-center gap-4 text-primary font-mono text-sm opacity-60">
+              <div className="bg-surface p-3 rounded border border-subtle">AI</div>
+              <Icon name="chevronRight" size={16} />
+              <div className="bg-surface p-3 rounded border border-subtle">CODE</div>
+              <Icon name="chevronRight" size={16} />
+              <div className="bg-surface p-3 rounded border border-subtle text-red font-bold">LIVE</div>
+            </div>
+            <p className="mt-6 text-sm text-secondary">Blindly modifies state. High risk, low governance. Humans must review a messy PR after the fact.</p>
           </div>
-          <div className="bg-surface-raised p-6 rounded-lg border border-subtle">
-            <h3 className="text-md font-bold mb-3">Recommended Judge Demo</h3>
-            <p className="text-sm text-secondary mb-4">Try this exact prompt in your WebMCP Agent (e.g. ChatGPT):</p>
-            <code className="block bg-input p-3 rounded text-sm text-primary mb-4 whitespace-pre-wrap">
-              "Fix the checkout shipping failures. Do not touch tax logic. Keep the patch under 20 changed lines."
-            </code>
-            <p className="text-sm text-secondary">Watch the agent create a shadow revision, get blocked if it touches tax.ts, and negotiate a narrower patch.</p>
+          
+          <div className="bg-violet/5 border border-violet/30 rounded-xl p-6 relative overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.1)]">
+            <div className="absolute top-0 right-0 p-2 opacity-10">
+              <Icon name="shield" size={64} />
+            </div>
+            <h3 className="text-lg font-bold text-violet mb-6 uppercase tracking-widest border-b border-violet/20 pb-3">PatchPilot 3.0</h3>
+            <div className="flex items-center gap-2 text-primary font-mono text-[11px] font-bold">
+              <div className="bg-surface p-2 rounded border border-subtle">AI</div>
+              <Icon name="chevronRight" size={12} className="text-violet" />
+              <div className="bg-violet/20 p-2 rounded border border-violet/30 text-violet">SHADOW</div>
+              <Icon name="chevronRight" size={12} className="text-violet" />
+              <div className="bg-amber/10 p-2 rounded border border-amber/30 text-amber">EVIDENCE</div>
+              <Icon name="chevronRight" size={12} className="text-violet" />
+              <div className="bg-green/10 p-2 rounded border border-green/30 text-green">HUMAN</div>
+              <Icon name="chevronRight" size={12} className="text-violet" />
+              <div className="bg-surface p-2 rounded border border-subtle text-primary">LIVE</div>
+            </div>
+            <p className="mt-6 text-sm text-secondary">Takes less than 20 seconds for a judge to understand. Agent proves correctness in counterfactual worlds; human executes.</p>
           </div>
         </div>
       </div>

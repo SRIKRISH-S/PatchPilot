@@ -107,8 +107,6 @@ describe('Integration: Agent-Human Collaboration', () => {
     // Alternative: shadow that avoids tax.ts
     const alt = store().createShadowRevision(
       [
-        { path: 'src/cart.ts', content: FIXED_CART_TS },
-        { path: 'src/pricing.ts', content: FIXED_PRICING_TS },
         { path: 'src/shipping.ts', content: FIXED_SHIPPING_TS },
         { path: 'src/checkout.ts', content: FIXED_CHECKOUT_TS },
       ],

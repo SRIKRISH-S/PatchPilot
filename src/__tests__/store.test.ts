@@ -1,7 +1,8 @@
 /* ─── PatchPilot Workspace Store Tests ─── */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useWorkspaceStore } from '../store';
+import { registerWebMCP, getToolManifest } from '../webmcp';
 
 function resetStore() {
   useWorkspaceStore.getState().resetDemo();
@@ -91,8 +92,9 @@ describe('Workspace Store', () => {
 
   describe('Shadow Revisions', () => {
     it('should create a shadow revision', () => {
+      const cartContent = useWorkspaceStore.getState().files['src/cart.ts'].content;
       const result = useWorkspaceStore.getState().createShadowRevision(
-        [{ path: 'src/cart.ts', content: '// fixed' }],
+        [{ path: 'src/cart.ts', content: cartContent + '\n// fixed' }],
         'Fix discount bug'
       );
       expect(result.ok).toBe(true);
@@ -102,8 +104,9 @@ describe('Workspace Store', () => {
     });
 
     it('should apply an approved shadow revision', () => {
+      const cartContent = useWorkspaceStore.getState().files['src/cart.ts'].content;
       const createResult = useWorkspaceStore.getState().createShadowRevision(
-        [{ path: 'src/cart.ts', content: '// fixed content' }],
+        [{ path: 'src/cart.ts', content: cartContent + '\n// fixed content' }],
         'Fix bug'
       );
       const sid = (createResult.data as any).shadowId;
@@ -113,7 +116,26 @@ describe('Workspace Store', () => {
       expect(applyResult.ok).toBe(true);
       
       const file = useWorkspaceStore.getState().getFileContent('src/cart.ts');
-      expect((file.data as { content: string }).content).toBe('// fixed content');
+      expect((file.data as { content: string }).content).toContain('// fixed content');
+    });
+
+    it('should preserve active shadow revision after human approval', () => {
+      const cartContent = useWorkspaceStore.getState().files['src/cart.ts'].content;
+      const createResult = useWorkspaceStore.getState().createShadowRevision(
+        [{ path: 'src/cart.ts', content: cartContent + '\n// persist' }],
+        'Fix bug and persist'
+      );
+      const sid = (createResult.data as any).shadowId;
+      useWorkspaceStore.setState({ activeShadowId: sid }); // Simulate UI opening it
+      
+      const applyResult = useWorkspaceStore.getState().applyShadowRevision(sid, 'human');
+      expect(applyResult.ok).toBe(true);
+      
+      // Should NOT be cleared
+      expect(useWorkspaceStore.getState().activeShadowId).toBe(sid);
+      
+      const shadow = useWorkspaceStore.getState().shadowRevisions.find(s => s.id === sid);
+      expect(shadow?.status).toBe('approved');
     });
 
     it('should not let agent apply a blocked proposal', () => {
@@ -261,6 +283,82 @@ describe('Workspace Store', () => {
       const result = useWorkspaceStore.getState().createShadowRevision([], 'Empty');
       expect(result.ok).toBe(false);
       expect(result.errorCode).toBe('INVALID_PATCH');
+    });
+  });
+
+  // ─── PatchPilot 3.0: WebMCP & Counterfactual Arena ───
+
+  describe('PatchPilot 3.0: WebMCP & Counterfactual Arena', () => {
+    it('should register exactly 11 WebMCP tools with no human-only approval tools', () => {
+      const manifest = getToolManifest();
+      expect(manifest.length).toBe(11);
+      const names = manifest.map(t => t.name);
+      expect(names).toContain('create_shadow_revision');
+      expect(names).not.toContain('apply_patch');
+      expect(names).not.toContain('propose_patch');
+    });
+
+    it('should strictly use document.modelContext for WebMCP detection', () => {
+      // Mock globalThis.document.modelContext
+      (globalThis as any).document = { modelContext: { registerTool: vi.fn().mockResolvedValue(true) } };
+      const reg = registerWebMCP();
+      expect(reg.available).toBe(true);
+      expect(reg.toolCount).toBe(11);
+    });
+
+    it('should run behavioral invariants and block shadow if one fails', () => {
+      const taxContent = useWorkspaceStore.getState().files['src/tax.ts'].content;
+      const badTaxContent = taxContent.replace('0.0725', '0.075'); // Changes tax rate
+      const result = useWorkspaceStore.getState().createShadowRevision([{ path: 'src/tax.ts', content: badTaxContent }], 'Modify tax', 'A', 'group-1');
+      
+      expect(result.ok).toBe(true);
+      const shadowId = (result.data as any).shadowId;
+      const shadow = useWorkspaceStore.getState().shadowRevisions.find(s => s.id === shadowId);
+      
+      expect(shadow?.status).toBe('blocked');
+      expect(shadow?.invariantResults?.['inv-tax']).toBe('fail');
+    });
+
+    it('should block shadow if it exceeds risk budget', () => {
+      useWorkspaceStore.getState().updateRiskBudget({ maxFiles: 1, maxLines: 50, protectedAreas: [], allowedAreas: [], forbidden: [] });
+      const result = useWorkspaceStore.getState().createShadowRevision([
+        { path: 'src/cart.ts', content: '// changed' },
+        { path: 'src/pricing.ts', content: '// changed' }
+      ], 'Change multiple', 'B', 'group-1');
+      
+      const shadowId = (result.data as any).shadowId;
+      const shadow = useWorkspaceStore.getState().shadowRevisions.find(s => s.id === shadowId);
+      expect(shadow?.status).toBe('blocked');
+      expect(shadow?.riskAssessment?.budgetViolations.length).toBeGreaterThan(0);
+    });
+
+    it('should maintain shadow candidates in isolation and not modify live', () => {
+      useWorkspaceStore.getState().createShadowRevision([{ path: 'src/cart.ts', content: '// cart isolated' }], 'Isolate', 'C', 'group-1');
+      const liveFile = useWorkspaceStore.getState().files['src/cart.ts'];
+      expect(liveFile.content).not.toContain('// cart isolated');
+    });
+
+    it('should remember human decision upon approval and generate receipt', () => {
+      const result = useWorkspaceStore.getState().createShadowRevision([{ path: 'src/cart.ts', content: '// good change' }], 'Fix', 'C', 'group-1');
+      const shadowId = (result.data as any).shadowId;
+      
+      useWorkspaceStore.getState().applyShadowRevision(shadowId, 'human');
+      const decisions = useWorkspaceStore.getState().humanDecisions;
+      expect(decisions.length).toBe(1);
+      expect(decisions[0].decision).toContain('Selected Candidate C');
+      
+      const receipts = useWorkspaceStore.getState().patchReceipts;
+      expect(receipts.length).toBe(1);
+      expect(receipts[0].selectedCandidate).toBe('C');
+    });
+
+    it('should not allow agent to approve a shadow', () => {
+      const result = useWorkspaceStore.getState().createShadowRevision([{ path: 'src/cart.ts', content: '// good change' }], 'Fix', 'C', 'group-1');
+      const shadowId = (result.data as any).shadowId;
+      
+      const applyResult = useWorkspaceStore.getState().applyShadowRevision(shadowId, 'agent');
+      expect(applyResult.ok).toBe(false);
+      expect(applyResult.errorCode).toBe('SHADOW_NOT_APPROVED');
     });
   });
 });

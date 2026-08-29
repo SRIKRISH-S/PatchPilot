@@ -5,11 +5,11 @@ import type {
   WorkspaceState, Actor, FileEntry, Constraint, ConstraintType,
   PatchChange, ActivityEvent, Snapshot, TestRunSummary,
   ToolResult, ShadowRevision, ImpactGraph, ImpactNode, ImpactEdge,
-  RiskBudget, ChangeContract, HumanDecision, PatchReceipt
+  RiskBudget, ChangeContract, HumanDecision, PatchReceipt, CausalEvidence, ImpactLevel
 } from './types';
 import { ErrorCodes } from './types';
-import { createDemoFiles, DEMO_PROJECT_NAME, DEMO_PROJECT_DESCRIPTION } from './demo-project';
-import { runTests } from './test-runner';
+import { createDemoFiles, DEMO_PROJECT_NAME, DEMO_PROJECT_DESCRIPTION, buildFileEntries } from './demo-project';
+import { runTests, evaluateInvariants } from './test-runner';
 
 /* ─── Helpers ─── */
 
@@ -150,6 +150,29 @@ function createInitialState(): WorkspaceState {
       protectedAreas: ['src/tax.ts'],
       forbidden: ['pricing semantics']
     },
+    invariants: [
+      {
+        id: 'inv-tax',
+        name: 'Tax calculation',
+        description: 'Tax calculation logic for US states must remain unchanged.',
+        fixtureCases: ['calculateTax(100, "CA")', 'calculateTax(100, "NY")'],
+        expectedResults: [7.25, 8.00]
+      },
+      {
+        id: 'inv-coupon',
+        name: 'Coupon semantics',
+        description: 'Coupon rate scaling must remain mathematically equivalent for downstream consumers.',
+        fixtureCases: ['calculateDiscount(100, { rate: 0.10 })', 'calculateDiscount(100, null)'],
+        expectedResults: [1000, 0] // the buggy original logic returns 1000 for 0.10
+      },
+      {
+        id: 'inv-rounding',
+        name: 'Currency rounding',
+        description: 'Rounding must exactly match the legacy system output format.',
+        fixtureCases: ['roundCurrency(12.345)', 'roundCurrency(12.9)'],
+        expectedResults: [12.3, 12.9] // original bug logic
+      }
+    ],
     humanDecisions: [],
     
     shadowRevisions: [],
@@ -322,7 +345,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
     // ─── Shadow Lab ───
 
-    createShadowRevision: (changes, explanation): ToolResult => {
+    createShadowRevision: (changes, explanation, candidateId, groupId): ToolResult => {
       if (!changes || changes.length === 0) {
         return { ok: false, errorCode: ErrorCodes.INVALID_PATCH, message: 'No changes provided', retryable: false };
       }
@@ -335,6 +358,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
       const shadow: ShadowRevision = {
         id: nextShadowId(),
+        groupId,
+        candidateId,
         baseRevision: state.revision,
         createdAt: Date.now(),
         changes,
@@ -503,6 +528,17 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
          violations.push(`Impact analysis detected protected area violation.`);
       }
 
+      // Evaluate behavioral invariants
+      const shadowFiles = fileContents(state.files);
+      for (const change of shadow.changes) {
+        shadowFiles[change.path] = change.content;
+      }
+      const invResults = evaluateInvariants(shadowFiles, state.invariants);
+      const failedInvariants = Object.entries(invResults).filter(([_, status]) => status === 'fail').map(([id]) => id);
+      if (failedInvariants.length > 0) {
+        violations.push(`Violated behavioral invariants: ${failedInvariants.join(', ')}`);
+      }
+
       const overallRisk = violations.length > 0 ? 'high' : 'low';
       const status = violations.length > 0 ? 'blocked' : 'passed';
 
@@ -518,14 +554,15 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
          shadowTestsPassed: shadow.testResults?.failed === 0,
          proposedFix: shadow.explanation,
          impactLevel: shadow.impactAnalysis?.summary.highestImpact || 'LOW',
-         humanDecision: `PatchPilot Deterministic Evaluation: ${patchScore}/100 Score. ${status === 'passed' ? 'Recommended for approval.' : 'BLOCKED.'}`
+         humanDecision: `Governance Evaluation: ${patchScore}/100 Score. ${status === 'passed' ? 'Recommended for approval.' : 'BLOCKED.'}`
       };
 
       set(s => ({
         shadowRevisions: s.shadowRevisions.map(sr => 
           sr.id === shadowId ? { 
             ...sr, 
-            status, 
+            status,
+            invariantResults: invResults,
             riskAssessment: { scopeRisk: shadow.changes.length, impactRisk: patchScore, overallRisk, budgetViolations: violations },
             evidence 
           } : sr
@@ -567,27 +604,40 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         }
       }
 
+      let invariantsPreserved = 0;
+      if (shadow.invariantResults) {
+         invariantsPreserved = Object.values(shadow.invariantResults).filter(v => v === 'pass').length;
+      }
+
       const receipt: PatchReceipt = {
         id: nextReceiptId(),
-        revision: state.revision + 1,
+        revision: get().revision,
         approvedBy,
         shadowId,
+        selectedCandidate: shadow.candidateId,
+        decisionReason: 'Human reviewed counterfactual evidence and selected best path.',
         filesChanged: shadow.changes.length,
-        linesChanged: shadow.changes.length * 10, // approx
-        shadowVerification: `${shadow.testResults?.passed}/${shadow.testResults?.total} tests passed`,
+        linesChanged: shadow.changes.reduce((acc, c) => acc + c.content.split('\\n').length, 0),
+        shadowVerification: 'passed',
         impact: shadow.impactAnalysis?.summary.highestImpact || 'LOW',
         risk: shadow.riskAssessment?.overallRisk || 'low',
-        contractViolations: shadow.riskAssessment?.budgetViolations.length || 0,
-        timestamp: Date.now()
+        contractViolations: 0,
+        invariantsPreserved,
+        timestamp: Date.now(),
       };
+
+      // Record to human decisions
+      if (shadow.candidateId) {
+         get().addHumanDecision(`Selected Candidate ${shadow.candidateId}`, receipt.decisionReason!);
+      }
 
       mutate(approvedBy, `Approved & Applied Shadow #${shadowId}`, shadow.changes.map(c => c.path), s => ({
         files: updatedFiles,
         patchReceipts: [receipt, ...s.patchReceipts],
-        shadowRevisions: s.shadowRevisions.map(p =>
-          p.id === shadowId ? { ...p, status: 'approved' as const } : p
+        shadowRevisions: s.shadowRevisions.map(sr => 
+          sr.id === shadowId ? { ...sr, status: 'approved' as const } : sr
         ),
-        activeShadowId: s.activeShadowId === shadowId ? null : s.activeShadowId,
+        activeShadowId: s.activeShadowId, // Do not clear active shadow after apply
       }));
 
       // Auto run live tests

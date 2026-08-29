@@ -1,6 +1,6 @@
 /* ─── Browser-based test runner for PatchPilot demo project ─── */
 
-import type { TestResult, TestRunSummary, TestStatus } from './types';
+import type { TestResult, TestRunSummary, TestStatus, BehavioralInvariant } from './types';
 
 /**
  * Minimal cleanup: remove import/export lines.
@@ -190,4 +190,55 @@ export function runTests(files: Record<string, string>): TestRunSummary {
       durationMs: Math.round(performance.now() - startTime),
     };
   }
+}
+
+/**
+ * Execute behavioral invariants against the project source.
+ */
+export function evaluateInvariants(files: Record<string, string>, invariants: BehavioralInvariant[]): Record<string, 'pass' | 'fail'> {
+  // Collect source modules
+  const cartSrc = files['src/cart.ts'] || '';
+  const pricingSrc = files['src/pricing.ts'] || '';
+  const shippingSrc = files['src/shipping.ts'] || '';
+  const taxSrc = files['src/tax.ts'] || '';
+  const checkoutSrc = files['src/checkout.ts'] || '';
+
+  // Build concatenated source (all plain JS)
+  const moduleCode = [
+    prepareSource(cartSrc),
+    prepareSource(pricingSrc),
+    prepareSource(shippingSrc),
+    prepareSource(taxSrc),
+    prepareSource(checkoutSrc),
+  ].join('\n\n');
+
+  const results: Record<string, 'pass' | 'fail'> = {};
+
+  for (const inv of invariants) {
+    let passed = true;
+    for (let i = 0; i < inv.fixtureCases.length; i++) {
+      const fixture = inv.fixtureCases[i];
+      const expected = inv.expectedResults[i];
+
+      const code = `
+        'use strict';
+        ${moduleCode}
+        return ${fixture};
+      `;
+      try {
+        const executor = new Function(code);
+        const actual = executor();
+        if (actual !== expected) {
+          passed = false;
+          break;
+        }
+      } catch (e) {
+        passed = false;
+        break;
+      }
+    }
+    results[inv.id] = passed ? 'pass' : 'fail';
+  }
+
+  return results;
 }
