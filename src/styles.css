@@ -587,6 +587,7 @@ input, textarea {
 .sidebar {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   background: var(--bg-surface-overlay);
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
@@ -1763,7 +1764,7 @@ input, textarea {
 .shadow-pill.blocked { background: var(--red-dim); color: var(--red); border-color: rgba(239,68,68,0.2); }
 .shadow-pill.approved { background: var(--violet-dim); color: var(--violet); border-color: rgba(139,92,246,0.2); }
 .editor-split { display: flex; flex: 1; min-height: 0; width: 100%; }
-.editor-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.editor-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .editor-split.is-split .editor-pane { width: 50%; border-right: 1px solid var(--border); }
 .editor-toolbar.live-toolbar { background: var(--bg-surface-raised); }
 .editor-toolbar.shadow-toolbar { background: var(--violet-dim); border-bottom: 1px solid rgba(139,92,246,0.2); }
@@ -1796,7 +1797,7 @@ input, textarea {
 .status-banner.draft { background: var(--bg-surface-raised); color: var(--text-secondary); }
 .status-banner.passed { background: var(--green-dim); color: var(--green); }
 .status-banner.blocked { background: var(--red-dim); color: var(--red); }
-.right-content { flex: 1; }
+.right-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .right-tab.disabled { opacity: 0.3; pointer-events: none; }
 
 /* ─── PatchPilot 3.0: Arena & Receipt ─── */
