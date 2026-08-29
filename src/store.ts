@@ -163,14 +163,14 @@ function createInitialState(): WorkspaceState {
         name: 'Coupon semantics',
         description: 'Coupon rate scaling must remain mathematically equivalent for downstream consumers.',
         fixtureCases: ['calculateDiscount(100, { rate: 0.10 })', 'calculateDiscount(100, null)'],
-        expectedResults: [1000, 0] // the buggy original logic returns 1000 for 0.10
+        expectedResults: [10, 0] // expecting correct logic
       },
       {
         id: 'inv-rounding',
         name: 'Currency rounding',
         description: 'Rounding must exactly match the legacy system output format.',
         fixtureCases: ['roundCurrency(12.345)', 'roundCurrency(12.9)'],
-        expectedResults: [12.3, 12.9] // original bug logic
+        expectedResults: [12.35, 12.9] // expecting correct logic
       }
     ],
     humanDecisions: [],

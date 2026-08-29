@@ -3,9 +3,13 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useWorkspaceStore } from '../store';
+import type { WorkspaceStore, FileEntry } from '../types';
+import { runTests, evaluateInvariants } from '../test-runner';
 import {
-  FIXED_CART_TS, FIXED_PRICING_TS, FIXED_SHIPPING_TS, FIXED_CHECKOUT_TS,
+  FIXED_CART_TS, FIXED_PRICING_TS, FIXED_SHIPPING_TS, FIXED_CHECKOUT_TS, CART_TS, PRICING_TS
 } from '../demo-project';
+
+const fileContents = (files: Record<string, FileEntry>) => Object.fromEntries(Object.entries(files).map(([p, e]) => [p, e.content]));
 
 function resetStore() {
   useWorkspaceStore.getState().resetDemo();
@@ -180,5 +184,46 @@ describe('Integration: Agent-Human Collaboration', () => {
     expect(results.failed).toBe(0);
     expect(results.passed).toBe(results.total);
     expect(results.total).toBeGreaterThanOrEqual(10);
+  });
+
+  describe('Hero Demo Consistency Regression', () => {
+    it('Candidate A must evaluate to 7/12 tests passing', () => {
+      // In the hero demo, Candidate A should genuinely evaluate to 7/12 passing
+      // We simulate Candidate A's files and run tests directly
+      const state = useWorkspaceStore.getState();
+      const taxContent = state.files['src/tax.ts']?.content || '';
+      const badTaxContent = taxContent + '\n\n// Intentionally break tax entirely to fail 5 tests\nfunction getTaxRate() { throw new Error("tax"); }\nfunction calculateTax() { throw new Error("tax"); }'; // Fails tax invariant
+      
+      const shadowFiles = { ...fileContents(state.files) };
+      shadowFiles['src/shipping.ts'] = FIXED_SHIPPING_TS;
+      shadowFiles['src/tax.ts'] = badTaxContent;
+
+      const results = runTests(shadowFiles);
+      expect(results.passed).toBe(7);
+      expect(results.total).toBe(12);
+    });
+
+    it('Candidate B must evaluate to 8/12 tests passing', () => {
+      const state = useWorkspaceStore.getState();
+      const shadowFiles = { ...fileContents(state.files) };
+      shadowFiles['src/shipping.ts'] = FIXED_SHIPPING_TS;
+      shadowFiles['src/cart.ts'] = CART_TS + '\n// extra line';
+      shadowFiles['src/pricing.ts'] = PRICING_TS + '\n// extra line';
+
+      const results = runTests(shadowFiles);
+      expect(results.passed).toBe(8);
+      expect(results.total).toBe(12);
+    });
+
+    it('Candidate C must evaluate to 12/12 tests passing', () => {
+      const state = useWorkspaceStore.getState();
+      const shadowFiles = { ...fileContents(state.files) };
+      shadowFiles['src/shipping.ts'] = FIXED_SHIPPING_TS;
+      // cart, pricing, checkout are ALREADY fixed in the live workspace
+
+      const results = runTests(shadowFiles);
+      expect(results.passed).toBe(12);
+      expect(results.total).toBe(12);
+    });
   });
 });

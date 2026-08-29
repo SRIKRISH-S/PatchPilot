@@ -1,7 +1,7 @@
 /* ─── PatchPilot 3.0 Rehearsal mode: The Shadow Lab Hero Story ─── */
 
 import { useWorkspaceStore } from './store';
-import { FIXED_SHIPPING_TS } from './demo-project';
+import { FIXED_SHIPPING_TS, CART_TS, PRICING_TS } from './demo-project';
 
 export interface RehearsalStep {
   label: string;
@@ -57,7 +57,9 @@ export async function runRehearsal(
   await delay(REHEARSAL_STEPS[3].delay);
   
   const taxContent = store().files['src/tax.ts']?.content || '';
-  const badTaxContent = taxContent.replace('0.0725', '0.075'); // Fails tax invariant
+  const badTaxContent = taxContent + '\n\n// Intentionally break tax entirely to fail 5 tests\nfunction getTaxRate() { throw new Error("tax"); }\nfunction calculateTax() { throw new Error("tax"); }'; // Fails tax invariant
+
+
   
   const groupId = 'group-demo-1';
 
@@ -73,11 +75,12 @@ export async function runRehearsal(
   );
 
   // Candidate B: Exceeds Budget (touches 3 files)
+  
   store().createShadowRevision(
     [
       { path: 'src/shipping.ts', content: FIXED_SHIPPING_TS },
-      { path: 'src/cart.ts', content: store().files['src/cart.ts'].content + '\n// extra line' },
-      { path: 'src/pricing.ts', content: store().files['src/pricing.ts'].content + '\n// extra line' }
+      { path: 'src/cart.ts', content: CART_TS + '\n// extra line' },
+      { path: 'src/pricing.ts', content: PRICING_TS + '\n// extra line' }
     ],
     'Fixes shipping and touches cart/pricing to restructure dependencies.',
     'B',

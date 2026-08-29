@@ -125,9 +125,11 @@ input, textarea {
 
 /* ─── App Shell ─── */
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  overflow: hidden;
 }
 
 /* ─── Landing Page ─── */
@@ -375,12 +377,14 @@ input, textarea {
   font-weight: 700;
   font-size: 14px;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .brand-sub {
   font-size: 10px;
   color: var(--text-muted);
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .topbar-meta {
@@ -395,12 +399,14 @@ input, textarea {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .meta-value {
   font-size: 12px;
   font-weight: 600;
   font-family: var(--font-mono);
+  white-space: nowrap;
 }
 
 .topbar-divider {
@@ -1710,31 +1716,25 @@ input, textarea {
 @media (max-width: 1100px) {
   .workspace {
     grid-template-columns: 180px 1fr;
+    grid-template-rows: 1fr auto;
+    overflow-y: auto;
+  }
+  .sidebar {
+    max-height: 100%;
   }
   .right-panel {
     grid-column: 1 / -1;
+    min-height: 300px;
     max-height: 400px;
     flex-direction: row;
     flex-wrap: wrap;
-  }
-  .right-section {
-    flex: 1;
-    min-width: 280px;
-  }
-  .right-tabs {
-    width: 100%;
-  }
-  .timeline {
-    width: 100%;
-  }
-  .topbar-center {
-    display: none;
   }
 }
 
 @media (max-width: 780px) {
   .workspace {
     grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
   }
   .sidebar {
     max-height: 200px;
@@ -1804,8 +1804,8 @@ input, textarea {
 .arena-header { margin-bottom: var(--sp-8); text-align: center; }
 .arena-title { font-size: 24px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; margin-bottom: var(--sp-2); text-transform: uppercase; }
 .arena-subtitle { color: var(--text-secondary); font-size: 14px; font-weight: 500; }
-.arena-grid { display: flex; gap: var(--sp-6); margin-bottom: var(--sp-8); }
-.candidate-card { flex: 1; display: flex; flex-direction: column; border: 1px solid rgba(0, 210, 255, 0.3); border-radius: var(--radius-lg); overflow: hidden; transition: all var(--transition-slow); background: rgba(10, 17, 40, 0.6); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); position: relative; box-shadow: 0 0 15px rgba(0, 210, 255, 0.05); }
+.arena-grid { display: flex; gap: var(--sp-6); margin-bottom: var(--sp-8); flex-wrap: wrap; }
+.candidate-card { flex: 1; min-width: 280px; display: flex; flex-direction: column; border: 1px solid rgba(0, 210, 255, 0.3); border-radius: var(--radius-lg); overflow: hidden; transition: all var(--transition-slow); background: rgba(10, 17, 40, 0.6); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); position: relative; box-shadow: 0 0 15px rgba(0, 210, 255, 0.05); }
 .candidate-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,210,255,0.05) 0%, transparent 100%); pointer-events: none; }
 .candidate-card:hover { transform: translateY(-4px); box-shadow: 0 0 25px rgba(0, 210, 255, 0.15), inset 0 0 10px rgba(0, 210, 255, 0.1); border-color: rgba(0, 210, 255, 0.6); }
 .candidate-card.blocked { border-color: rgba(255, 51, 102, 0.4); opacity: 0.8; box-shadow: 0 0 15px rgba(255, 51, 102, 0.1); }
@@ -1856,10 +1856,10 @@ input, textarea {
 .receipt-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-6); border-bottom: 1px solid var(--border-subtle); padding-bottom: var(--sp-4); }
 .receipt-panel-title { font-size: 14px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: var(--sp-2); text-transform: uppercase; letter-spacing: 0.05em; }
 .receipt-panel-title svg { color: var(--violet); }
-.receipt-id { font-size: 12px; font-family: var(--font-mono); color: var(--text-tertiary); }
-.receipt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5) var(--sp-4); font-size: 14px; }
+.receipt-id { font-size: 12px; font-family: var(--font-mono); color: var(--text-tertiary); word-break: break-all; }
+.receipt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--sp-5) var(--sp-4); font-size: 14px; }
 .receipt-label { color: var(--text-secondary); }
-.receipt-value { font-weight: 700; color: var(--text-primary); }
+.receipt-value { font-weight: 700; color: var(--text-primary); word-break: break-word; }
 .receipt-value.violet { color: var(--violet); display: flex; align-items: center; gap: var(--sp-2); }
 .receipt-value.green { color: var(--green); }
 .receipt-value.amber { color: var(--amber); }

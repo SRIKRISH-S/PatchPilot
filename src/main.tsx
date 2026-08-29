@@ -202,7 +202,9 @@ function TopBar() {
         )}
 
         <div className="status-pill border-subtle text-secondary bg-surface-raised">
-          {testResults ? `${testResults.passed}/${testResults.total} TESTS` : 'NO TESTS'}
+          {activeShadow && activeShadow.testResults 
+            ? `${activeShadow.testResults.passed}/${activeShadow.testResults.total} TESTS`
+            : testResults ? `${testResults.passed}/${testResults.total} TESTS` : 'NO TESTS'}
         </div>
 
         <div className="status-pill border-subtle text-secondary bg-surface-raised">

@@ -292,11 +292,11 @@ test('currency rounding to nearest cent', function() {
  */
 export function createDemoFiles(): Record<string, { content: string; language: string }> {
   return {
-    'src/cart.ts':        { content: CART_TS,          language: 'javascript' },
-    'src/pricing.ts':     { content: PRICING_TS,       language: 'javascript' },
+    'src/cart.ts':        { content: FIXED_CART_TS,    language: 'javascript' },
+    'src/pricing.ts':     { content: FIXED_PRICING_TS, language: 'javascript' },
     'src/shipping.ts':    { content: SHIPPING_TS,      language: 'javascript' },
     'src/tax.ts':         { content: TAX_TS,           language: 'javascript' },
-    'src/checkout.ts':    { content: CHECKOUT_TS,      language: 'javascript' },
+    'src/checkout.ts':    { content: FIXED_CHECKOUT_TS,language: 'javascript' },
     'tests/checkout.test.ts': { content: CHECKOUT_TEST_TS, language: 'javascript' },
   };
 }
