@@ -346,34 +346,34 @@ function EvidenceView({ shadow }: { shadow: ShadowRevision }) {
   const isApproved = shadow.status === 'approved';
 
   const steps = [
-    { icon: 'zap', color: 'text-red', title: 'Observed Failure', desc: 'Tests failing in base revision' },
-    { icon: 'search', color: 'text-blue', title: 'Root Cause', desc: evidence.proposedFix },
-    { icon: 'file', color: 'text-violet', title: 'Shadow Patch', desc: 'Candidate changes applied in isolation' },
-    { icon: 'git', color: 'text-amber', title: 'Impact Analysis', desc: `Blast radius: ${evidence.impactLevel}` },
-    { icon: 'shield', color: riskAssessment?.overallRisk === 'high' ? 'text-red' : 'text-green', title: 'Invariant Verification', desc: riskAssessment?.budgetViolations.length ? riskAssessment.budgetViolations.join(', ') : 'Within risk budget and invariants preserved' },
-    { icon: 'check', color: evidence.shadowTestsPassed ? 'text-green' : 'text-red', title: 'Test Verification', desc: shadow.testResults ? `${shadow.testResults.passed}/${shadow.testResults.total} TESTS PASSING` : 'Verified' },
+    { icon: 'zap', color: 'red', title: 'Observed Failure', desc: 'Tests failing in base revision' },
+    { icon: 'search', color: 'blue', title: 'Root Cause', desc: evidence.proposedFix },
+    { icon: 'file', color: 'violet', title: 'Shadow Patch', desc: 'Candidate changes applied in isolation' },
+    { icon: 'git', color: 'amber', title: 'Impact Analysis', desc: `Blast radius: ${evidence.impactLevel}` },
+    { icon: 'shield', color: riskAssessment?.overallRisk === 'high' ? 'red' : 'green', title: 'Invariant Verification', desc: riskAssessment?.budgetViolations.length ? riskAssessment.budgetViolations.join(', ') : 'Within risk budget and invariants preserved' },
+    { icon: 'check', color: evidence.shadowTestsPassed ? 'green' : 'red', title: 'Test Verification', desc: shadow.testResults ? `${shadow.testResults.passed}/${shadow.testResults.total} TESTS PASSING` : 'Verified' },
     ...(isApproved || shadow.evidence?.humanDecision ? [
-      { icon: 'user', color: 'text-violet', title: 'Human Approval', desc: shadow.evidence?.humanDecision || 'Human Authorized' },
-      { icon: 'server', color: 'text-blue', title: 'Live Revision', desc: 'Merged to authoritative state' },
-      { icon: 'copy', color: 'text-primary', title: 'Change Receipt', desc: 'Immutable governance record generated' }
+      { icon: 'user', color: 'violet', title: 'Human Approval', desc: shadow.evidence?.humanDecision || 'Human Authorized' },
+      { icon: 'server', color: 'blue', title: 'Live Revision', desc: 'Merged to authoritative state' },
+      { icon: 'copy', color: 'primary', title: 'Change Receipt', desc: 'Immutable governance record generated' }
     ] : [])
   ];
 
   return (
-    <div className="evidence-chain p-6 overflow-y-auto h-full">
-      <h3 className="text-sm font-bold text-primary mb-6 uppercase tracking-wider flex items-center gap-2">
-        <Icon name="search" size={16} className="text-violet" /> Causal Evidence Board
+    <div className="evidence-chain">
+      <h3 className="evidence-title">
+        <Icon name="search" size={16} /> Causal Evidence Board
       </h3>
       
-      <div className="relative pl-6 border-l-2 border-subtle ml-3 space-y-8">
+      <div className="timeline-container">
         {steps.map((step, i) => (
-          <div key={i} className="relative">
-            <div className={`absolute -left-[35px] w-6 h-6 rounded-full bg-surface border-2 ${step.color.replace('text-', 'border-')} flex items-center justify-center`}>
-              <Icon name={step.icon} size={12} className={step.color} />
+          <div key={i} className="timeline-step">
+            <div className={`timeline-icon-wrap ${step.color}`}>
+              <Icon name={step.icon} size={12} />
             </div>
-            <div>
-              <strong className={`block text-sm ${step.color}`}>{step.title}</strong>
-              <span className="text-sm text-secondary">{step.desc}</span>
+            <div className="timeline-content">
+              <strong className={step.color}>{step.title}</strong>
+              <span>{step.desc}</span>
             </div>
           </div>
         ))}
@@ -484,66 +484,66 @@ function CounterfactualArena({ activeShadow }: { activeShadow: ShadowRevision })
   };
 
   return (
-    <div className="proposal-view p-6 flex flex-col h-full overflow-y-auto">
-      <div className="mb-8 text-center">
-        <h3 className="text-2xl font-bold text-primary mb-2 tracking-tight">COUNTERFACTUAL CHANGE ARENA</h3>
-        <p className="text-secondary text-sm font-medium">"Three possible ways to fix the same production failure."</p>
+    <div className="proposal-view">
+      <div className="arena-header">
+        <h3 className="arena-title">COUNTERFACTUAL CHANGE ARENA</h3>
+        <p className="arena-subtitle">"Three possible ways to fix the same production failure."</p>
       </div>
 
-      <div className="flex gap-4 mb-8">
+      <div className="arena-grid">
         {group.map(s => {
           const isBlocked = s.status === 'blocked';
           const blockReason = getBlockReason(s);
           const isRecommended = recommended?.id === s.id;
           
           return (
-            <div key={s.id} className={`flex-1 flex flex-col border rounded-xl overflow-hidden transition-all duration-300 ${isBlocked ? 'border-red/20 opacity-80' : isRecommended ? 'border-violet/60 shadow-[0_0_15px_rgba(139,92,246,0.1)] ring-1 ring-violet/30' : 'border-subtle bg-surface-raised'}`}>
-              <div className={`p-3 text-center border-b font-bold text-sm ${isBlocked ? 'bg-red/5 border-red/10 text-secondary' : isRecommended ? 'bg-violet/10 border-violet/20 text-violet' : 'border-subtle text-primary'}`}>
+            <div key={s.id} className={`candidate-card ${isBlocked ? 'blocked' : ''} ${isRecommended ? 'recommended' : ''}`}>
+              <div className={`candidate-header ${isBlocked ? 'blocked' : ''} ${isRecommended ? 'recommended' : ''}`}>
                 Candidate {s.candidateId || s.id.split('-').pop()}
               </div>
-              <div className="p-4 space-y-3 text-xs bg-surface/50 flex-1">
-                <div className="flex justify-between">
-                  <span className="text-tertiary">Tests:</span>
-                  <span className={s.testResults?.failed ? 'text-red font-bold' : 'text-primary'}>{s.testResults ? `${s.testResults.passed}/${s.testResults.total}` : '-'}</span>
+              <div className="candidate-body">
+                <div className="candidate-metric">
+                  <span className="metric-label">Tests:</span>
+                  <span className={`metric-value ${s.testResults?.failed ? 'fail' : ''}`}>{s.testResults ? `${s.testResults.passed}/${s.testResults.total}` : '-'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-tertiary">Impact:</span>
-                  <span className={s.impactAnalysis?.summary.highestImpact === 'HIGH' ? 'text-amber font-bold' : 'text-primary'}>{s.impactAnalysis?.summary.highestImpact || '-'}</span>
+                <div className="candidate-metric">
+                  <span className="metric-label">Impact:</span>
+                  <span className={`metric-value ${s.impactAnalysis?.summary.highestImpact === 'HIGH' ? 'warn' : ''}`}>{s.impactAnalysis?.summary.highestImpact || '-'}</span>
                 </div>
                 {isBlocked ? (
-                  <div className="mt-4 pt-4 border-t border-red/10">
-                    <div className="text-red font-bold">{blockReason}</div>
+                  <div className="candidate-block-reason">
+                    {blockReason}
                   </div>
                 ) : (
                   <>
-                    <div className="flex justify-between">
-                      <span className="text-tertiary">Risk:</span>
-                      <span className="text-primary">{s.riskAssessment?.overallRisk || '-'}</span>
+                    <div className="candidate-metric">
+                      <span className="metric-label">Risk:</span>
+                      <span className="metric-value">{s.riskAssessment?.overallRisk || '-'}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-tertiary">Files:</span>
-                      <span className="text-primary">{s.changes.length}</span>
+                    <div className="candidate-metric">
+                      <span className="metric-label">Files:</span>
+                      <span className="metric-value">{s.changes.length}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-tertiary">Lines:</span>
-                      <span className="text-primary">{s.changes.reduce((a,c) => a + c.content.split('\n').length, 0)}</span>
+                    <div className="candidate-metric">
+                      <span className="metric-label">Lines:</span>
+                      <span className="metric-value">{s.changes.reduce((a,c) => a + c.content.split('\n').length, 0)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-tertiary">Invariants:</span>
-                      <span className="text-green font-bold">PASS</span>
+                    <div className="candidate-metric">
+                      <span className="metric-label">Invariants:</span>
+                      <span className="metric-value pass">PASS</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-tertiary">Budget:</span>
-                      <span className="text-green font-bold">PASS</span>
+                    <div className="candidate-metric">
+                      <span className="metric-label">Budget:</span>
+                      <span className="metric-value pass">PASS</span>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-subtle">
-                      <div className="text-green font-bold">Status: READY FOR APPROVAL</div>
+                    <div className="candidate-ready">
+                      Status: READY FOR APPROVAL
                     </div>
                   </>
                 )}
               </div>
               <button 
-                className={`w-full py-2 text-xs font-bold transition-colors ${store.getState().activeShadowId === s.id ? 'bg-primary text-root' : 'bg-surface hover:bg-surface-raised text-secondary'}`}
+                className={`candidate-action ${store.getState().activeShadowId === s.id ? 'active' : ''}`}
                 onClick={() => store.setState({ activeShadowId: s.id })}>
                 {store.getState().activeShadowId === s.id ? 'VIEWING CODE' : 'VIEW CODE'}
               </button>
@@ -553,54 +553,36 @@ function CounterfactualArena({ activeShadow }: { activeShadow: ShadowRevision })
       </div>
 
       {recommended && store.getState().activeShadowId === recommended.id && (
-        <div className="mt-auto bg-surface-raised border border-violet/30 rounded-xl overflow-hidden shadow-lg animate-in fade-in slide-in-from-bottom-4">
-          <div className="bg-violet/10 px-6 py-3 border-b border-violet/20 flex items-center justify-between">
-            <h4 className="text-violet font-bold text-sm tracking-wide">READY FOR HUMAN REVIEW</h4>
-            <div className="text-xs text-violet/80">Candidate {recommended.candidateId || recommended.id.split('-').pop()}</div>
+        <div className="review-section">
+          <div className="review-header">
+            <h4 className="review-title">READY FOR HUMAN REVIEW</h4>
+            <div className="review-cand-id">Candidate {recommended.candidateId || recommended.id.split('-').pop()}</div>
           </div>
           
-          <div className="p-6">
-            <p className="text-sm text-secondary mb-4">Candidate {recommended.candidateId || recommended.id.split('-').pop()} satisfies all constraints:</p>
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <div className="flex items-center gap-2 text-sm text-primary">
-                <Icon name="check" size={16} className="text-green" /> 
-                {recommended.testResults?.passed}/{recommended.testResults?.total} tests
-              </div>
-              <div className="flex items-center gap-2 text-sm text-primary">
-                <Icon name="check" size={16} className="text-green" /> 
-                Behavioral invariants preserved
-              </div>
-              <div className="flex items-center gap-2 text-sm text-primary">
-                <Icon name="check" size={16} className="text-green" /> 
-                Protected files untouched
-              </div>
-              <div className="flex items-center gap-2 text-sm text-primary">
-                <Icon name="check" size={16} className="text-green" /> 
-                Risk budget satisfied
-              </div>
-              <div className="flex items-center gap-2 text-sm text-primary">
-                <Icon name="check" size={16} className="text-green" /> 
-                Shadow isolated
-              </div>
-              <div className="flex items-center gap-2 text-sm text-primary">
-                <Icon name="check" size={16} className="text-green" /> 
-                Impact analyzed
-              </div>
+          <div className="review-body">
+            <p className="review-desc">Candidate {recommended.candidateId || recommended.id.split('-').pop()} satisfies all constraints:</p>
+            <div className="review-checks">
+              <div className="review-check"><Icon name="check" size={16} /> {recommended.testResults?.passed}/{recommended.testResults?.total} tests</div>
+              <div className="review-check"><Icon name="check" size={16} /> Behavioral invariants preserved</div>
+              <div className="review-check"><Icon name="check" size={16} /> Protected files untouched</div>
+              <div className="review-check"><Icon name="check" size={16} /> Risk budget satisfied</div>
+              <div className="review-check"><Icon name="check" size={16} /> Shadow isolated</div>
+              <div className="review-check"><Icon name="check" size={16} /> Impact analyzed</div>
             </div>
             
-            <div className="flex gap-3 mt-6">
+            <div className="review-actions">
               <button 
-                className="btn secondary flex-1 flex justify-center items-center gap-2"
+                className="review-btn secondary"
                 onClick={() => store.setState({ activeTab: 'EVIDENCE' })}>
                 <Icon name="search" size={14} /> VIEW EVIDENCE
               </button>
               <button 
-                className="btn approve flex-1 flex justify-center items-center gap-2 bg-violet hover:bg-violet/90 text-white border-0 py-2 font-bold shadow-md"
+                className="review-btn primary"
                 onClick={() => store.getState().applyShadowRevision(recommended.id, 'human')}>
                 <Icon name="check" size={16} /> APPROVE & APPLY
               </button>
             </div>
-            <div className="text-center mt-3 text-[10px] text-tertiary uppercase tracking-widest font-bold">
+            <div className="review-disclaimer">
               Human Authorized Only
             </div>
           </div>
@@ -622,68 +604,68 @@ function ChangeReceiptView({ activeShadow }: { activeShadow: ShadowRevision }) {
   const candidateName = `Candidate ${receipt.selectedCandidate || receipt.shadowId.split('-').pop()}`;
 
   return (
-    <div className="proposal-view p-6 flex flex-col h-full overflow-y-auto animate-in fade-in zoom-in-95">
-      <div className="mb-8 flex items-center gap-3">
-        <div className="bg-green/10 p-2 rounded-full border border-green/20">
-          <Icon name="check" size={24} className="text-green" />
+    <div className="receipt-view proposal-view">
+      <div className="receipt-header-banner">
+        <div className="receipt-icon-wrap">
+          <Icon name="check" size={24} />
         </div>
         <div>
-          <h3 className="text-2xl font-bold text-green tracking-tight">APPLIED TO LIVE</h3>
-          <p className="text-sm text-secondary">The counterfactual candidate has been merged into authoritative state.</p>
+          <h3 className="receipt-title">APPLIED TO LIVE</h3>
+          <p className="receipt-subtitle">The counterfactual candidate has been merged into authoritative state.</p>
         </div>
       </div>
 
-      <div className="bg-surface-raised border border-subtle p-6 rounded-xl mb-6 shadow-xl">
-        <div className="flex justify-between items-center mb-6 border-b border-subtle pb-4">
-          <h4 className="text-sm font-bold text-primary flex items-center gap-2 tracking-wide uppercase">
-            <Icon name="shield" size={16} className="text-violet" /> 
+      <div className="receipt-panel">
+        <div className="receipt-panel-header">
+          <h4 className="receipt-panel-title">
+            <Icon name="shield" size={16} /> 
             Change Receipt
           </h4>
-          <span className="text-xs font-mono text-tertiary">{receipt.id}</span>
+          <span className="receipt-id">{receipt.id}</span>
         </div>
         
-        <div className="grid grid-cols-2 gap-y-5 text-sm">
-          <div className="text-secondary">Selected Candidate</div>
-          <div className="font-bold text-primary">{candidateName}</div>
+        <div className="receipt-grid">
+          <div className="receipt-label">Selected Candidate</div>
+          <div className="receipt-value">{candidateName}</div>
 
-          <div className="text-secondary">Human Decision</div>
-          <div className="font-bold text-violet flex items-center gap-2">
+          <div className="receipt-label">Human Decision</div>
+          <div className="receipt-value violet">
             <Icon name="user" size={14} /> Approved ({receipt.approvedBy})
           </div>
 
-          <div className="text-secondary">Changed Files</div>
-          <div className="text-primary font-mono text-xs bg-surface p-1 rounded inline-block">
+          <div className="receipt-label">Changed Files</div>
+          <div className="receipt-value mono">
             {activeShadow.changes.map(c => c.path).join(', ')}
           </div>
 
-          <div className="text-secondary">Verification</div>
-          <div className="text-green font-bold">
+          <div className="receipt-label">Verification</div>
+          <div className="receipt-value green">
             {activeShadow.testResults ? `${activeShadow.testResults.passed}/${activeShadow.testResults.total} tests passing` : 'Verified'}
           </div>
 
-          <div className="text-secondary">Behavioral Invariants</div>
-          <div className="text-green font-bold">All preserved</div>
+          <div className="receipt-label">Behavioral Invariants</div>
+          <div className="receipt-value green">All preserved</div>
 
-          <div className="text-secondary">Risk Budget</div>
-          <div className="text-green font-bold">Compliant</div>
+          <div className="receipt-label">Risk Budget</div>
+          <div className="receipt-value green">Compliant</div>
 
-          <div className="text-secondary">Protected Files</div>
-          <div className="text-primary">untouched</div>
+          <div className="receipt-label">Protected Files</div>
+          <div className="receipt-value">untouched</div>
 
-          <div className="text-secondary">Impact</div>
-          <div className={`font-bold ${receipt.impact === 'HIGH' ? 'text-amber' : 'text-blue'}`}>{receipt.impact}</div>
+          <div className="receipt-label">Impact</div>
+          <div className={`receipt-value ${receipt.impact === 'HIGH' ? 'amber' : 'blue'}`}>{receipt.impact}</div>
 
-          <div className="text-secondary border-t border-subtle pt-4 mt-2">Live Revision</div>
-          <div className="font-bold text-primary text-lg border-t border-subtle pt-4 mt-2">#{receipt.revision}</div>
+          <div className="receipt-label receipt-divider">Live Revision</div>
+          <div className="receipt-value receipt-live-rev receipt-divider">#{receipt.revision}</div>
 
-          <div className="text-secondary">Timestamp</div>
-          <div className="text-tertiary">{timestamp}</div>
+          <div className="receipt-label">Timestamp</div>
+          <div className="receipt-value receipt-timestamp">{timestamp}</div>
         </div>
       </div>
 
-      <div className="mt-auto">
+      <div className="receipt-close">
         <button 
-          className="btn secondary w-full flex justify-center items-center gap-2 py-3 font-bold"
+          className="btn secondary"
           onClick={() => store.setState({ activeShadowId: null })}>
           <Icon name="x" size={16} /> DISMISS RECEIPT
         </button>
@@ -742,61 +724,61 @@ function WebMCPInspector() {
   if (!show) return null;
   return (
     <div className="inspector-overlay" onClick={() => store.getState().setShowWebMCPInspector(false)}>
-      <div className="inspector-panel p-8 bg-surface border border-subtle rounded-xl max-w-4xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-8 border-b border-subtle pb-4">
+      <div className="inspector-panel" onClick={e => e.stopPropagation()}>
+        <div className="inspector-header">
           <div>
-            <h2 className="text-2xl font-bold text-primary tracking-tight">WEBMCP TOOL REGISTRY</h2>
-            <p className="text-secondary text-sm font-medium mt-1">11 TOOLS REGISTERED</p>
+            <h2 className="inspector-title">WEBMCP TOOL REGISTRY</h2>
+            <p className="inspector-subtitle">11 TOOLS REGISTERED</p>
           </div>
-          <button className="text-tertiary hover:text-primary transition-colors" onClick={() => store.getState().setShowWebMCPInspector(false)}>
+          <button className="inspector-close" onClick={() => store.getState().setShowWebMCPInspector(false)}>
             <Icon name="x" size={24} />
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-8 mb-8">
-          <div className="bg-surface-raised border border-green/30 rounded-lg p-5">
-            <h3 className="text-green font-bold text-sm mb-4 flex items-center gap-2">
+        <div className="permission-grid">
+          <div className="permission-box allow">
+            <h3 className="permission-box-title allow">
               <Icon name="check" size={16} /> AGENT PERMISSIONS
             </h3>
-            <ul className="space-y-2 text-sm text-primary">
-              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Inspect project state</li>
-              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Analyze impact radius</li>
-              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Read evidence & human decisions</li>
-              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Create counterfactual shadow patches</li>
-              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Run shadow tests</li>
-              <li className="flex items-start gap-2"><Icon name="check" size={14} className="text-green mt-0.5" /> Compare candidates</li>
+            <ul className="permission-list">
+              <li className="permission-item allow"><Icon name="check" size={14} /> Inspect project state</li>
+              <li className="permission-item allow"><Icon name="check" size={14} /> Analyze impact radius</li>
+              <li className="permission-item allow"><Icon name="check" size={14} /> Read evidence & human decisions</li>
+              <li className="permission-item allow"><Icon name="check" size={14} /> Create counterfactual shadow patches</li>
+              <li className="permission-item allow"><Icon name="check" size={14} /> Run shadow tests</li>
+              <li className="permission-item allow"><Icon name="check" size={14} /> Compare candidates</li>
             </ul>
           </div>
-          <div className="bg-surface-raised border border-red/30 rounded-lg p-5">
-            <h3 className="text-red font-bold text-sm mb-4 flex items-center gap-2">
+          <div className="permission-box block">
+            <h3 className="permission-box-title block">
               <Icon name="x" size={16} /> BLOCKED FROM AGENT
             </h3>
-            <ul className="space-y-2 text-sm text-primary">
-              <li className="flex items-start gap-2"><Icon name="x" size={14} className="text-red mt-0.5" /> Approve patches</li>
-              <li className="flex items-start gap-2"><Icon name="x" size={14} className="text-red mt-0.5" /> Apply patches to live state</li>
-              <li className="flex items-start gap-2"><Icon name="x" size={14} className="text-red mt-0.5" /> Modify authoritative live state</li>
-              <li className="flex items-start gap-2"><Icon name="x" size={14} className="text-red mt-0.5" /> Bypass risk budgets</li>
-              <li className="flex items-start gap-2"><Icon name="x" size={14} className="text-red mt-0.5" /> Fake test results</li>
+            <ul className="permission-list">
+              <li className="permission-item block"><Icon name="x" size={14} /> Approve patches</li>
+              <li className="permission-item block"><Icon name="x" size={14} /> Apply patches to live state</li>
+              <li className="permission-item block"><Icon name="x" size={14} /> Modify authoritative live state</li>
+              <li className="permission-item block"><Icon name="x" size={14} /> Bypass risk budgets</li>
+              <li className="permission-item block"><Icon name="x" size={14} /> Fake test results</li>
             </ul>
           </div>
         </div>
 
-        <div className="bg-violet/10 border border-violet/30 rounded-lg p-4 mb-8 text-center">
-          <h3 className="text-violet font-bold text-sm tracking-widest uppercase">HUMAN-ONLY CONTROL BOUNDARY</h3>
-          <p className="text-secondary text-xs mt-1">The agent cannot cross this boundary. All patches require explicit human approval via the PatchPilot UI.</p>
+        <div className="human-boundary">
+          <h3 className="human-boundary-title">HUMAN-ONLY CONTROL BOUNDARY</h3>
+          <p className="human-boundary-desc">The agent cannot cross this boundary. All patches require explicit human approval via the PatchPilot UI.</p>
         </div>
 
-        <h3 className="text-lg font-bold text-primary mb-4 border-b border-subtle pb-2">Registered Tools</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <h3 className="registry-title">Registered Tools</h3>
+        <div className="registry-grid">
           {getToolManifest().map(t => (
-            <div key={t.name} className="p-4 bg-surface-raised border border-subtle rounded-lg">
-              <div className="flex justify-between items-start mb-2">
-                <strong className="text-violet text-sm font-mono">{t.name}</strong>
-                <span className="text-[10px] uppercase bg-surface px-1.5 py-0.5 rounded text-tertiary">
+            <div key={t.name} className="tool-card">
+              <div className="tool-card-header">
+                <strong className="tool-card-name">{t.name}</strong>
+                <span className="tool-card-type">
                   {t.name.includes('create') || t.name.includes('run') || t.name.includes('analyze') ? 'MUTATE SHADOW' : 'READ LIVE'}
                 </span>
               </div>
-              <p className="text-xs text-secondary leading-relaxed">{t.description}</p>
+              <p className="tool-card-desc">{t.description}</p>
             </div>
           ))}
         </div>
@@ -812,73 +794,73 @@ function JudgeModeOverlay() {
   if (!judgeMode) return null;
 
   return (
-    <div className="judge-overlay fixed inset-0 z-50 bg-root/95 backdrop-blur-md flex items-center justify-center p-8">
-      <div className="bg-surface border border-subtle rounded-2xl p-10 max-w-5xl w-full shadow-2xl relative overflow-y-auto max-h-[90vh]">
-        <button className="absolute top-6 right-6 text-tertiary hover:text-primary transition-colors" onClick={() => store.getState().setJudgeMode(false)}>
+    <div className="judge-overlay">
+      <div className="judge-panel">
+        <button className="judge-close" onClick={() => store.getState().setJudgeMode(false)}>
           <Icon name="x" size={28} />
         </button>
         
-        <div className="mb-10 text-center">
-          <h2 className="text-4xl font-bold mb-3 tracking-tight text-primary">PATCHPILOT 3.0</h2>
-          <h3 className="text-2xl text-violet font-medium mb-4">Human-Governed Agentic Change Management</h3>
-          <p className="text-lg text-secondary max-w-2xl mx-auto italic">
+        <div className="judge-header">
+          <h2 className="judge-title">PATCHPILOT 3.0</h2>
+          <h3 className="judge-subtitle">Human-Governed Agentic Change Management</h3>
+          <p className="judge-quote">
             "The agent can investigate, simulate and prove a change.<br/>It cannot independently change authoritative state."
           </p>
         </div>
 
-        <div className="flex justify-between items-center mb-12 px-8 relative">
-          <div className="absolute top-1/2 left-16 right-16 h-1 bg-subtle -z-10 -translate-y-1/2 rounded"></div>
+        <div className="process-timeline">
+          <div className="process-line"></div>
           
           {[
-            { num: '01', title: 'UNDERSTAND', icon: 'search', color: 'text-blue' },
-            { num: '02', title: 'SIMULATE', icon: 'file', color: 'text-violet' },
-            { num: '03', title: 'VERIFY', icon: 'shield', color: 'text-amber' },
-            { num: '04', title: 'HUMAN APPROVES', icon: 'user', color: 'text-green' },
-            { num: '05', title: 'APPLY', icon: 'check', color: 'text-primary' },
+            { num: '01', title: 'UNDERSTAND', icon: 'search', color: 'blue' },
+            { num: '02', title: 'SIMULATE', icon: 'file', color: 'violet' },
+            { num: '03', title: 'VERIFY', icon: 'shield', color: 'amber' },
+            { num: '04', title: 'HUMAN APPROVES', icon: 'user', color: 'green' },
+            { num: '05', title: 'APPLY', icon: 'check', color: 'primary' },
           ].map((step, i) => (
-            <div key={i} className="flex flex-col items-center bg-surface p-2">
-              <div className={`w-14 h-14 rounded-full bg-surface-raised border-2 border-subtle flex items-center justify-center mb-3 shadow-sm ${step.color}`}>
+            <div key={i} className="process-step">
+              <div className={`process-icon-wrap ${step.color}`}>
                 <Icon name={step.icon} size={24} />
               </div>
-              <span className="text-[10px] font-bold text-tertiary mb-1">{step.num}</span>
-              <span className="text-xs font-bold text-primary tracking-wider">{step.title}</span>
+              <span className="process-num">{step.num}</span>
+              <span className="process-name">{step.title}</span>
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-8 mb-8">
-          <div className="bg-surface-raised border border-subtle rounded-xl p-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-2 opacity-10">
+        <div className="comparison-section">
+          <div className="comparison-card">
+            <div className="comparison-bg-icon">
               <Icon name="bot" size={64} />
             </div>
-            <h3 className="text-lg font-bold text-tertiary mb-6 uppercase tracking-widest border-b border-subtle pb-3">Traditional AI Coding</h3>
-            <div className="flex items-center gap-4 text-primary font-mono text-sm opacity-60">
-              <div className="bg-surface p-3 rounded border border-subtle">AI</div>
-              <Icon name="chevronRight" size={16} />
-              <div className="bg-surface p-3 rounded border border-subtle">CODE</div>
-              <Icon name="chevronRight" size={16} />
-              <div className="bg-surface p-3 rounded border border-subtle text-red font-bold">LIVE</div>
+            <h3 className="comparison-title">Traditional AI Coding</h3>
+            <div className="flow-diagram">
+              <div className="flow-node">AI</div>
+              <Icon name="chevronRight" size={16} className="flow-arrow" />
+              <div className="flow-node">CODE</div>
+              <Icon name="chevronRight" size={16} className="flow-arrow" />
+              <div className="flow-node danger">LIVE</div>
             </div>
-            <p className="mt-6 text-sm text-secondary">Blindly modifies state. High risk, low governance. Humans must review a messy PR after the fact.</p>
+            <p className="comparison-desc">Blindly modifies state. High risk, low governance. Humans must review a messy PR after the fact.</p>
           </div>
           
-          <div className="bg-violet/5 border border-violet/30 rounded-xl p-6 relative overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.1)]">
-            <div className="absolute top-0 right-0 p-2 opacity-10">
+          <div className="comparison-card patchpilot">
+            <div className="comparison-bg-icon">
               <Icon name="shield" size={64} />
             </div>
-            <h3 className="text-lg font-bold text-violet mb-6 uppercase tracking-widest border-b border-violet/20 pb-3">PatchPilot 3.0</h3>
-            <div className="flex items-center gap-2 text-primary font-mono text-[11px] font-bold">
-              <div className="bg-surface p-2 rounded border border-subtle">AI</div>
-              <Icon name="chevronRight" size={12} className="text-violet" />
-              <div className="bg-violet/20 p-2 rounded border border-violet/30 text-violet">SHADOW</div>
-              <Icon name="chevronRight" size={12} className="text-violet" />
-              <div className="bg-amber/10 p-2 rounded border border-amber/30 text-amber">EVIDENCE</div>
-              <Icon name="chevronRight" size={12} className="text-violet" />
-              <div className="bg-green/10 p-2 rounded border border-green/30 text-green">HUMAN</div>
-              <Icon name="chevronRight" size={12} className="text-violet" />
-              <div className="bg-surface p-2 rounded border border-subtle text-primary">LIVE</div>
+            <h3 className="comparison-title">PatchPilot 3.0</h3>
+            <div className="flow-diagram">
+              <div className="flow-node">AI</div>
+              <Icon name="chevronRight" size={12} className="flow-arrow" />
+              <div className="flow-node shadow">SHADOW</div>
+              <Icon name="chevronRight" size={12} className="flow-arrow" />
+              <div className="flow-node evidence">EVIDENCE</div>
+              <Icon name="chevronRight" size={12} className="flow-arrow" />
+              <div className="flow-node human">HUMAN</div>
+              <Icon name="chevronRight" size={12} className="flow-arrow" />
+              <div className="flow-node live">LIVE</div>
             </div>
-            <p className="mt-6 text-sm text-secondary">Takes less than 20 seconds for a judge to understand. Agent proves correctness in counterfactual worlds; human executes.</p>
+            <p className="comparison-desc">Takes less than 20 seconds for a judge to understand. Agent proves correctness in counterfactual worlds; human executes.</p>
           </div>
         </div>
       </div>
