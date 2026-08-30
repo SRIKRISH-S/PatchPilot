@@ -1,6 +1,6 @@
-# Judge Guide: PatchPilot 2.0
+# Judge Guide: PatchPilot 3.0
 
-Thank you for reviewing PatchPilot 2.0 for the OpenAI WebMCP Challenge!
+Thank you for reviewing PatchPilot 3.0 for the OpenAI WebMCP Challenge!
 
 This project is a browser-native React application that implements a novel paradigm for human-AI collaboration: **The Shadow Change Lab**. 
 
@@ -33,6 +33,6 @@ Check `src/store.ts` and `src/webmcp.ts` to see how we guarantee security:
 
 ### The Innovation
 Most WebMCP demos are variations of "I gave the AI a file writer tool and it built a website." 
-PatchPilot 2.0 asks: **"How do we safely let an AI touch a production codebase?"** 
+PatchPilot 3.0 asks: **"How do we safely let an AI touch a production codebase?"** 
 
 The answer is **governance, isolation, and proof.** By forcing the AI into a Shadow Revision, enforcing Risk Budgets, and generating visual Causal Evidence (Impact Graphs and Shadow Tests), we transform the AI from a dangerous rogue agent into a verifiable, governed collaborator.

@@ -1,4 +1,4 @@
-/* ─── PatchPilot 2.0 – Main Application ─── */
+/* ─── PatchPilot 3.0 – Main Application ─── */
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -100,7 +100,7 @@ function LandingPage() {
               <defs><linearGradient id="logo-grad" x1="0" y1="0" x2="48" y2="48"><stop stopColor="#8b5cf6"/><stop offset="1" stopColor="#3b82f6"/></linearGradient></defs>
             </svg>
           </div>
-          <h1 className="landing-title">PatchPilot 2.0</h1>
+          <h1 className="landing-title">PatchPilot 3.0</h1>
           <p className="landing-tagline">Understand. Simulate. Govern. Apply.</p>
         </div>
 

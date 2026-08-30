@@ -1,12 +1,12 @@
-# PatchPilot 2.0: The Shadow Change Lab
+# PatchPilot 3.0: The Shadow Change Lab
 
 **Understand. Simulate. Govern. Apply.**
 
-PatchPilot 2.0 is a browser-native WebMCP application that introduces a novel paradigm for human-AI collaboration: **The Shadow Change Lab**.
+PatchPilot 3.0 is a browser-native WebMCP application that introduces a novel paradigm for human-AI collaboration: **The Shadow Change Lab**.
 
 Most AI coding assistants operate on a fundamental flaw: they edit the live, authoritative state of the project, forcing the human to clean up their messes. 
 
-In PatchPilot 2.0, the agent is strictly prohibited from mutating the authoritative workspace. Instead, when the agent wants to propose a change, it creates a **Shadow Revision**.
+In PatchPilot 3.0, the agent is strictly prohibited from mutating the authoritative workspace. Instead, when the agent wants to propose a change, it creates a **Shadow Revision**.
 
 ## Core Innovation
 

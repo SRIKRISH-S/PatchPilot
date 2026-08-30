@@ -1,8 +1,8 @@
-# PatchPilot 2.0 Security & Governance Model
+# PatchPilot 3.0 Security & Governance Model
 
-The primary security thesis of PatchPilot 2.0 is that AI agents cannot be fully trusted to modify authoritative software state autonomously, regardless of the underlying LLM's capability. 
+The primary security thesis of PatchPilot 3.0 is that AI agents cannot be fully trusted to modify authoritative software state autonomously, regardless of the underlying LLM's capability. 
 
-To bridge this gap, PatchPilot 2.0 enforces a strict separation between **Agent Simulation** and **Human Authority**.
+To bridge this gap, PatchPilot 3.0 enforces a strict separation between **Agent Simulation** and **Human Authority**.
 
 ## 1. Single Source of Truth
 The `WorkspaceStore` (powered by Zustand) holds the live, authoritative project state. 

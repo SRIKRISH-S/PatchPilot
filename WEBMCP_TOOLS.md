@@ -1,6 +1,6 @@
-# PatchPilot 2.0 WebMCP Tool Specification
+# PatchPilot 3.0 WebMCP Tool Specification
 
-PatchPilot 2.0 exposes a strictly governed set of WebMCP tools to the AI agent. The agent cannot bypass human constraints or alter authoritative state.
+PatchPilot 3.0 exposes a strictly governed set of WebMCP tools to the AI agent. The agent cannot bypass human constraints or alter authoritative state.
 
 ## 1. READ TOOLS
 These tools allow the agent to inspect the authoritative state of the workspace.

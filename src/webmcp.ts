@@ -1,4 +1,4 @@
-/* ─── WebMCP tool registration for PatchPilot 2.0 ─── */
+/* ─── WebMCP tool registration for PatchPilot 3.0 ─── */
 
 import { useWorkspaceStore } from './store';
 import type { WebMCPResponse } from './types';
@@ -285,11 +285,11 @@ export function registerWebMCP(): WebMCPRegistration {
   
   Promise.all(tools.map(t => host.registerTool!(t)))
     .then(() => {
-      console.log(`[PatchPilot 2.0] WebMCP: ${tools.length} tools registered`);
+      console.log(`[PatchPilot 3.0] WebMCP: ${tools.length} tools registered`);
       _registered = true;
     })
     .catch(err => {
-      console.error('[PatchPilot 2.0] WebMCP registration failed:', err);
+      console.error('[PatchPilot 3.0] WebMCP registration failed:', err);
     });
 
   return { available: true, toolCount: tools.length, toolNames: tools.map(t => t.name) };
