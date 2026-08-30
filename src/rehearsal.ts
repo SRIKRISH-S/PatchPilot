@@ -56,47 +56,7 @@ export async function runRehearsal(
   onStep(3, REHEARSAL_STEPS[3]);
   await delay(REHEARSAL_STEPS[3].delay);
   
-  const taxContent = store().files['src/tax.ts']?.content || '';
-  const badTaxContent = taxContent + '\n\n// Intentionally break tax entirely to fail 5 tests\nfunction getTaxRate() { throw new Error("tax"); }\nfunction calculateTax() { throw new Error("tax"); }'; // Fails tax invariant
-
-
-  
-  const groupId = 'group-demo-1';
-
-  // Candidate A: Fails Invariant
-  store().createShadowRevision(
-    [
-      { path: 'src/shipping.ts', content: FIXED_SHIPPING_TS },
-      { path: 'src/tax.ts', content: badTaxContent }
-    ],
-    'Minimal fix but accidentally updates tax rate to 7.5%.',
-    'A',
-    groupId
-  );
-
-  // Candidate B: Exceeds Budget (touches 3 files)
-  
-  store().createShadowRevision(
-    [
-      { path: 'src/shipping.ts', content: FIXED_SHIPPING_TS },
-      { path: 'src/cart.ts', content: CART_TS + '\n// extra line' },
-      { path: 'src/pricing.ts', content: PRICING_TS + '\n// extra line' }
-    ],
-    'Fixes shipping and touches cart/pricing to restructure dependencies.',
-    'B',
-    groupId
-  );
-
-  // Candidate C: Successful Refactor
-  const shadowCRes = store().createShadowRevision(
-    [{ path: 'src/shipping.ts', content: FIXED_SHIPPING_TS }],
-    'Fixes shipping bug precisely without touching other modules.',
-    'C',
-    groupId
-  );
-
-  const shadowCId = (shadowCRes.data as any).shadowId;
-  set({ activeShadowId: shadowCId }); // Set active to C so the arena opens focusing on C
+  await generateCounterfactualCandidates(store, set);
 
   // 5. Counterfactual Eval
   onStep(4, REHEARSAL_STEPS[4]);
@@ -124,3 +84,45 @@ export async function runRehearsal(
   set({ rehearsalRunning: false });
   onComplete();
 }
+
+export async function generateCounterfactualCandidates(store: any, set: any) {
+  const taxContent = store().files['src/tax.ts']?.content || '';
+  const badTaxContent = taxContent + '\n\n// Intentionally break tax entirely to fail 5 tests\nfunction getTaxRate() { throw new Error("tax"); }\nfunction calculateTax() { throw new Error("tax"); }'; 
+
+  const groupId = 'group-demo-1';
+
+  // Candidate A: Fails Invariant
+  store().createShadowRevision(
+    [
+      { path: 'src/shipping.ts', content: FIXED_SHIPPING_TS },
+      { path: 'src/tax.ts', content: badTaxContent }
+    ],
+    'Minimal fix but accidentally updates tax rate to 7.5%.',
+    'A',
+    groupId
+  );
+
+  // Candidate B: Exceeds Budget
+  store().createShadowRevision(
+    [
+      { path: 'src/shipping.ts', content: FIXED_SHIPPING_TS },
+      { path: 'src/cart.ts', content: CART_TS + '\n// extra line' },
+      { path: 'src/pricing.ts', content: PRICING_TS + '\n// extra line' }
+    ],
+    'Fixes shipping and touches cart/pricing to restructure dependencies.',
+    'B',
+    groupId
+  );
+
+  // Candidate C: Successful Refactor
+  const shadowCRes = store().createShadowRevision(
+    [{ path: 'src/shipping.ts', content: FIXED_SHIPPING_TS }],
+    'Fixes shipping bug precisely without touching other modules.',
+    'C',
+    groupId
+  );
+
+  const shadowCId = (shadowCRes.data as any).shadowId;
+  set({ activeShadowId: shadowCId }); 
+}
+

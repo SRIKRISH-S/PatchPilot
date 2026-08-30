@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { useWorkspaceStore } from './store';
 import type { WorkspaceStore } from './store';
 import { registerWebMCP, getToolManifest } from './webmcp';
-import { runRehearsal, REHEARSAL_STEPS } from './rehearsal';
+import { runRehearsal, REHEARSAL_STEPS, generateCounterfactualCandidates } from './rehearsal';
 import type { ShadowRevision, TestResult, ActivityEvent, Constraint, PatchChange } from './types';
 import * as Diff from 'diff';
 import './styles.css';
@@ -437,21 +437,94 @@ function ContractView() {
   );
 }
 
-/* ─── Right Panel: Agent Activity ─── */
 function AgentActivity() {
+  const store = useWorkspaceStore;
   const activity = useWorkspaceStore(sel.activity).filter(a => a.actor !== 'human');
+  const shadowRevisions = useWorkspaceStore(sel.shadowRevisions);
   
+  const [investigating, setInvestigating] = useState(false);
+  const [step, setStep] = useState(0);
+
+  const startInvestigation = async () => {
+    setInvestigating(true);
+    
+    // 1. Observed Failure
+    setStep(1);
+    store.getState().runProjectTests();
+    await new Promise(r => setTimeout(r, 1200));
+    
+    // 2. Root Cause Identified
+    setStep(2);
+    store.getState().updateChangeContract({
+      goal: 'Fix shipping bug where grams are treated as kg.',
+      mustPreserve: ['tax calculation logic'],
+      mustSatisfy: ['shipping tests must pass'],
+    });
+    store.getState().updateRiskBudget({ maxFiles: 2, maxLines: 50, protectedAreas: ['src/tax.ts'], allowedAreas: ['src/shipping.ts'], forbidden: [] });
+    await new Promise(r => setTimeout(r, 1500));
+    
+    // 3. Generating Patches
+    setStep(3);
+    await new Promise(r => setTimeout(r, 1500));
+    
+    // 4. Verifying Candidates
+    setStep(4);
+    await generateCounterfactualCandidates(store.getState, store.setState);
+    setInvestigating(false);
+  };
+
   return (
-    <div className="timeline p-4">
-      {activity.map(a => (
-        <div key={a.id} className="timeline-event">
-          <Icon name={a.actor === 'agent' ? 'bot' : 'server'} size={14} className="text-tertiary" />
-          <div className="ml-2">
-            <div className="text-sm text-primary">{a.description}</div>
-            <div className="text-xs text-tertiary">{new Date(a.timestamp).toLocaleTimeString()}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '24px' }}>
+      <div className="timeline" style={{ flex: 1, overflowY: 'auto', marginBottom: '24px' }}>
+        {activity.map(a => (
+          <div key={a.id} className="timeline-event" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <div style={{ marginTop: '2px' }}><Icon name={a.actor === 'agent' ? 'bot' : 'server'} size={14} className="text-tertiary" /></div>
+            <div>
+              <div className="text-sm text-primary" style={{ fontWeight: 600 }}>{a.description}</div>
+              <div className="text-xs text-tertiary">{new Date(a.timestamp).toLocaleTimeString()}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {shadowRevisions.length === 0 && !investigating && (
+        <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '24px', textAlign: 'center' }}>
+          <p className="text-secondary" style={{ fontSize: '12px', marginBottom: '16px' }}>The agent is idle. WebMCP tools are available.</p>
+          <button 
+            className="btn approve"
+            style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontWeight: 800, letterSpacing: '0.05em' }}
+            onClick={startInvestigation}
+          >
+            <Icon name="search" size={16} /> ANALYZE FAILURE & GENERATE SHADOW PATCHES
+          </button>
+        </div>
+      )}
+
+      {investigating && (
+        <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '24px' }}>
+          <h3 style={{ fontSize: '13px', fontWeight: 800, color: 'var(--violet)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.1em' }}>
+            <Icon name="bot" size={16} /> AGENT INVESTIGATION
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: step >= 1 ? 'var(--text-primary)' : 'var(--text-tertiary)', opacity: step >= 1 ? 1 : 0.5 }}>
+              <Icon name={step > 1 ? 'check' : 'circle'} size={14} className={step > 1 ? 'text-green' : ''} />
+              <span style={{ fontWeight: 600 }}>Observing workspace and test failures...</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: step >= 2 ? 'var(--text-primary)' : 'var(--text-tertiary)', opacity: step >= 2 ? 1 : 0.5 }}>
+              <Icon name={step > 2 ? 'check' : 'circle'} size={14} className={step > 2 ? 'text-green' : ''} />
+              <span style={{ fontWeight: 600 }}>Identifying root cause & defining risk budget...</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: step >= 3 ? 'var(--text-primary)' : 'var(--text-tertiary)', opacity: step >= 3 ? 1 : 0.5 }}>
+              <Icon name={step > 3 ? 'check' : 'circle'} size={14} className={step > 3 ? 'text-green' : ''} />
+              <span style={{ fontWeight: 600 }}>Generating counterfactual candidate patches...</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: step >= 4 ? 'var(--text-primary)' : 'var(--text-tertiary)', opacity: step >= 4 ? 1 : 0.5 }}>
+              <Icon name={step > 4 ? 'check' : 'circle'} size={14} className={step > 4 ? 'text-green' : ''} />
+              <span style={{ fontWeight: 600 }}>Verifying candidates in isolated shadow arenas...</span>
+            </div>
           </div>
         </div>
-      ))}
+      )}
     </div>
   );
 }
