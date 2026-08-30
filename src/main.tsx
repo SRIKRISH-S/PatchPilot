@@ -654,11 +654,28 @@ function CounterfactualArena({ activeShadow }: { activeShadow: ShadowRevision })
                   </>
                 )}
               </div>
-              <button 
-                className={`candidate-action ${store.getState().activeShadowId === s.id ? 'active' : ''}`}
-                onClick={() => store.setState({ activeShadowId: s.id })}>
-                {store.getState().activeShadowId === s.id ? 'VIEWING CODE' : 'VIEW CODE'}
-              </button>
+              {isRecommended ? (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <button 
+                    className="candidate-action active"
+                    style={{ background: 'var(--green-dim)', color: 'var(--green)', borderTop: '1px solid rgba(34,197,94,0.2)', fontSize: '13px', fontWeight: 800, padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                    onClick={() => store.getState().applyShadowRevision(s.id, 'human')}>
+                    <Icon name="check" size={16} /> 
+                    APPROVE & APPLY
+                  </button>
+                  <button 
+                    className={`candidate-action ${store.getState().activeShadowId === s.id ? 'active' : ''}`}
+                    onClick={() => store.setState({ activeShadowId: s.id })}>
+                    {store.getState().activeShadowId === s.id ? 'VIEWING CODE' : 'VIEW CODE'}
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  className={`candidate-action ${store.getState().activeShadowId === s.id ? 'active' : ''}`}
+                  onClick={() => store.setState({ activeShadowId: s.id })}>
+                  {store.getState().activeShadowId === s.id ? 'VIEWING CODE' : 'VIEW CODE'}
+                </button>
+              )}
             </div>
           );
         })}
