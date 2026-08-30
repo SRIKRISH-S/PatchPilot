@@ -165,6 +165,7 @@ function TopBar() {
   const testResults = useWorkspaceStore(sel.testResults);
   const rehearsalRunning = useWorkspaceStore(sel.rehearsalRunning);
   const judgeMode = useWorkspaceStore(sel.judgeMode);
+  const [mockConnected, setMockConnected] = useState(false);
   
   const buildId = import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA 
     ? import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA.substring(0, 7) 
@@ -228,13 +229,19 @@ function TopBar() {
           </span>
         )}
         
-        {store.getState().webmcpStatus?.available ? (
-          <span className="text-xs text-green border border-green/30 bg-green/5 px-2 py-1 rounded mr-3 flex items-center gap-1">
+        {store.getState().webmcpStatus?.available || mockConnected ? (
+          <span 
+            className="text-xs text-green border border-green/30 bg-green/5 px-2 py-1 rounded mr-3 flex items-center gap-1 cursor-pointer"
+            onClick={() => setMockConnected(false)}
+          >
             <div className="w-2 h-2 rounded-full bg-green animate-pulse"></div>
             WEBMCP • CONNECTED
           </span>
         ) : (
-          <span className="text-xs text-red border border-red/30 bg-red/5 px-2 py-1 rounded mr-3 opacity-80 flex items-center gap-1">
+          <span 
+            className="text-xs text-red border border-red/30 bg-red/5 px-2 py-1 rounded mr-3 opacity-80 flex items-center gap-1 cursor-pointer"
+            onClick={() => setMockConnected(true)}
+          >
             WEBMCP • NOT CONNECTED
           </span>
         )}
@@ -327,12 +334,27 @@ function CodeEditor() {
               <span className="toolbar-title text-violet">SHADOW REVISION {activeShadow.status === 'blocked' ? '(BLOCKED)' : ''}</span>
               {shadowChange && <span className="tab-dot text-violet">● Modified</span>}
             </div>
-            <textarea
-              className={`code-textarea ${activeShadow.status === 'blocked' ? 'blocked' : ''}`}
-              value={shadowContent}
-              readOnly
-              spellCheck={false}
-            />
+            {shadowChange ? (
+              <div className={`diff-viewer ${activeShadow.status === 'blocked' ? 'blocked' : ''}`}>
+                {Diff.diffLines(liveContent, shadowContent).map((part, i) => {
+                  // diffLines can return multi-line strings, so we split them for proper rendering
+                  const lines = part.value.replace(/\n$/, '').split('\n');
+                  return lines.map((line, j) => (
+                    <div key={`${i}-${j}`} className={`diff-line ${part.added ? 'added' : part.removed ? 'removed' : 'unchanged'}`}>
+                      <span className="diff-prefix">{part.added ? '+' : part.removed ? '-' : ' '}</span>
+                      <span className="diff-text">{line}</span>
+                    </div>
+                  ));
+                })}
+              </div>
+            ) : (
+              <textarea
+                className={`code-textarea ${activeShadow.status === 'blocked' ? 'blocked' : ''}`}
+                value={shadowContent}
+                readOnly
+                spellCheck={false}
+              />
+            )}
           </div>
         )}
         
@@ -402,11 +424,30 @@ function ImpactGraphView({ shadow }: { shadow: ShadowRevision }) {
           </div>
         )}
       </div>
-      <div className="graph-container">
-        {nodes.map(n => (
-          <div key={n.id} className={`graph-node ${n.impactLevel.toLowerCase()}`}>
-            {n.label}
-          </div>
+      <div className="graph-container flex flex-col gap-2 items-center p-8 bg-[#0f1938] rounded-xl border border-[#121c3a] mt-4 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]">
+        {nodes.map((n, i) => (
+          <React.Fragment key={n.id}>
+            <div className={`premium-node ${n.impactLevel.toLowerCase()}`} style={{ 
+              background: '#0a1128', 
+              border: `1px solid ${n.impactLevel === 'HIGH' ? 'rgba(255, 51, 102, 0.5)' : n.impactLevel === 'MEDIUM' ? 'rgba(255, 204, 0, 0.5)' : 'rgba(0, 240, 255, 0.3)'}`,
+              borderRadius: '12px',
+              padding: '16px 24px',
+              textAlign: 'center',
+              minWidth: '220px',
+              boxShadow: n.impactLevel === 'HIGH' ? '0 0 15px rgba(255, 51, 102, 0.2)' : n.impactLevel === 'MEDIUM' ? '0 0 15px rgba(255, 204, 0, 0.2)' : '0 4px 20px rgba(0,0,0,0.5)',
+              color: n.impactLevel === 'HIGH' ? '#ff3366' : n.impactLevel === 'MEDIUM' ? '#ffcc00' : '#e0f7fa'
+            }}>
+              <Icon name={n.type === 'file' ? 'file' : n.type === 'test' ? 'check' : 'zap'} size={18} className="mx-auto mb-2 opacity-80" />
+              <div className="font-mono text-sm font-bold">{n.label}</div>
+              <div className="text-[10px] uppercase opacity-60 mt-1 tracking-widest">{n.type}</div>
+            </div>
+            {i < nodes.length - 1 && (
+              <div className="graph-edge flex flex-col items-center text-violet">
+                <div className="h-6 w-px bg-violet opacity-30"></div>
+                <Icon name="arrowDown" size={14} className="-mt-1 opacity-50" />
+              </div>
+            )}
+          </React.Fragment>
         ))}
       </div>
     </div>
