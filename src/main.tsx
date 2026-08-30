@@ -784,7 +784,7 @@ function RightPanel() {
         {(['AGENT', 'EVIDENCE', 'IMPACT', 'PROPOSAL', 'CONTRACT'] as const).map(tab => (
           <button key={tab}
             className={`right-tab ${activeTab === tab ? 'active' : ''} ${(tab === 'EVIDENCE' || tab === 'IMPACT' || tab === 'PROPOSAL') && !activeShadow ? 'disabled' : ''}`}
-            onClick={() => setActiveShadow ? setActiveTab(tab) : tab === 'AGENT' || tab === 'CONTRACT' ? setActiveTab(tab) : null}>
+            onClick={() => activeShadow ? setActiveTab(tab) : (tab === 'AGENT' || tab === 'CONTRACT') ? setActiveTab(tab) : null}>
             {tab}
           </button>
         ))}
