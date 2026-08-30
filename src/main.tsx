@@ -565,6 +565,43 @@ function CounterfactualArena({ activeShadow }: { activeShadow: ShadowRevision })
         <p className="arena-subtitle">"Three possible ways to fix the same production failure."</p>
       </div>
 
+      {recommended && store.getState().activeShadowId === recommended.id && (
+        <div className="review-section">
+          <div className="review-header">
+            <h4 className="review-title">READY FOR HUMAN REVIEW</h4>
+            <div className="review-cand-id">Candidate {recommended.candidateId || recommended.id.split('-').pop()}</div>
+          </div>
+          
+          <div className="review-body">
+            <p className="review-desc">Candidate {recommended.candidateId || recommended.id.split('-').pop()} satisfies all constraints:</p>
+            <div className="review-checks">
+              <div className="review-check"><Icon name="check" size={16} /> {recommended.testResults?.passed}/{recommended.testResults?.total} tests</div>
+              <div className="review-check"><Icon name="check" size={16} /> Behavioral invariants preserved</div>
+              <div className="review-check"><Icon name="check" size={16} /> Protected files untouched</div>
+              <div className="review-check"><Icon name="check" size={16} /> Risk budget satisfied</div>
+              <div className="review-check"><Icon name="check" size={16} /> Shadow isolated</div>
+              <div className="review-check"><Icon name="check" size={16} /> Impact analyzed</div>
+            </div>
+            
+            <div className="review-actions">
+              <button 
+                className="review-btn secondary"
+                onClick={() => store.setState({ activeTab: 'EVIDENCE' })}>
+                <Icon name="search" size={14} /> VIEW EVIDENCE
+              </button>
+              <button 
+                className="review-btn primary"
+                onClick={() => store.getState().applyShadowRevision(recommended.id, 'human')}>
+                <Icon name="check" size={16} /> APPROVE & APPLY
+              </button>
+            </div>
+            <div className="review-disclaimer">
+              Human Authorized Only
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="arena-grid">
         {group.map(s => {
           const isBlocked = s.status === 'blocked';
@@ -626,43 +663,6 @@ function CounterfactualArena({ activeShadow }: { activeShadow: ShadowRevision })
           );
         })}
       </div>
-
-      {recommended && store.getState().activeShadowId === recommended.id && (
-        <div className="review-section">
-          <div className="review-header">
-            <h4 className="review-title">READY FOR HUMAN REVIEW</h4>
-            <div className="review-cand-id">Candidate {recommended.candidateId || recommended.id.split('-').pop()}</div>
-          </div>
-          
-          <div className="review-body">
-            <p className="review-desc">Candidate {recommended.candidateId || recommended.id.split('-').pop()} satisfies all constraints:</p>
-            <div className="review-checks">
-              <div className="review-check"><Icon name="check" size={16} /> {recommended.testResults?.passed}/{recommended.testResults?.total} tests</div>
-              <div className="review-check"><Icon name="check" size={16} /> Behavioral invariants preserved</div>
-              <div className="review-check"><Icon name="check" size={16} /> Protected files untouched</div>
-              <div className="review-check"><Icon name="check" size={16} /> Risk budget satisfied</div>
-              <div className="review-check"><Icon name="check" size={16} /> Shadow isolated</div>
-              <div className="review-check"><Icon name="check" size={16} /> Impact analyzed</div>
-            </div>
-            
-            <div className="review-actions">
-              <button 
-                className="review-btn secondary"
-                onClick={() => store.setState({ activeTab: 'EVIDENCE' })}>
-                <Icon name="search" size={14} /> VIEW EVIDENCE
-              </button>
-              <button 
-                className="review-btn primary"
-                onClick={() => store.getState().applyShadowRevision(recommended.id, 'human')}>
-                <Icon name="check" size={16} /> APPROVE & APPLY
-              </button>
-            </div>
-            <div className="review-disclaimer">
-              Human Authorized Only
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
